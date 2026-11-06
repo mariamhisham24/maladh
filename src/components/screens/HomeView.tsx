@@ -9,6 +9,7 @@ import {
 import { useTheme } from '../../context/ThemeContext';
 import { SEED_ADHKAR, getDailySunnah } from '../../data/seedData';
 import { db } from '../../db';
+import { InstallAppButton } from '../common/PWAInstallBanner';
 
 interface HomeViewProps {
   onNavigate: (tab: TabKey) => void;
@@ -112,6 +113,9 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onOpenInStudio }
 
   return (
     <div className="space-y-5 pb-28 md:pb-8 animate-fade-in max-w-lg mx-auto">
+      {/* Install App First-Visit Banner */}
+      <InstallAppButton dismissible={true} />
+
       {/* Day Greeting with Synchronized Hijri & Gregorian Date */}
       <div className="text-right">
         <span className="text-xs text-text-muted inline-flex items-center gap-1.5 font-medium">
