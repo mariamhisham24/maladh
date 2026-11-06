@@ -37,9 +37,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange }) => {
       {/* Brand Header */}
       <div className="flex items-center gap-3.5 px-3 mb-8">
         <img 
-          src="/maladh-logo-original.png" 
+          src="/maladh-logo-icon.png" 
           alt="شعار مَلَاذْ" 
-          className="w-11 h-11 rounded-full shadow-sm object-cover"
+          className="w-11 h-11 rounded-full border border-accent/40 shadow-sm object-cover"
         />
           <div>
             <div className="flex items-center gap-2">
