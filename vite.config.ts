@@ -10,9 +10,19 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['maladh-logo-icon.png', 'maladh-logo-lockup.png', 'botanical-ivory.png', 'botanical-night.png'],
+      includeAssets: [
+        'pwa-192x192.png',
+        'pwa-512x512.png',
+        'apple-touch-icon.png',
+        'favicon.png',
+        'favicon-32x32.png',
+        'maladh-logo-icon.png',
+        'maladh-logo-lockup.png',
+        'botanical-ivory.png',
+        'botanical-night.png'
+      ],
       manifest: {
-        name: 'مَلَاذْ — رفيقك الروحي اليومي',
+        name: 'مَلَاذْ',
         short_name: 'مَلَاذْ',
         description: 'رفيقك الروحي اليومي للأذكار، القرآن، والسبحة — يعمل محلياً وخاص بالكامل',
         theme_color: '#0A0D14',
@@ -25,15 +35,21 @@ export default defineConfig({
         orientation: 'portrait',
         icons: [
           {
-            src: '/maladh-logo-icon.png',
+            src: '/pwa-192x192.png',
             sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: '/maladh-logo-icon.png',
+            src: '/pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png',
-            purpose: 'any maskable'
+            purpose: 'any'
+          },
+          {
+            src: '/pwa-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
           }
         ]
       },
