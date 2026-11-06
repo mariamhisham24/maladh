@@ -53,6 +53,7 @@ export function AppContent() {
       case 'tasbeeh':
         return (
           <TasbeehView 
+            key={`${tasbeehConfig.dhikr || 'default'}-${tasbeehConfig.target || 33}`}
             initialDhikr={tasbeehConfig.dhikr} 
             initialTarget={tasbeehConfig.target} 
           />

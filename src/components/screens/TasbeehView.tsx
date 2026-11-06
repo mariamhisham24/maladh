@@ -109,6 +109,18 @@ export const TasbeehView: React.FC<TasbeehViewProps> = ({
     });
   }, []);
 
+  // Synchronize when coming from Spiritual Guidance (Navigator / المساحة الروحانية)
+  useEffect(() => {
+    if (initialDhikr) {
+      setSelectedDhikr(initialDhikr);
+      setCurrentCount(0);
+      setHistory([]);
+    }
+    if (typeof initialTarget === 'number') {
+      setTargetCount(initialTarget);
+    }
+  }, [initialDhikr, initialTarget]);
+
   // Save custom dhikrs
   const saveCustomDhikrs = (list: CustomDhikr[]) => {
     setCustomDhikrs(list);

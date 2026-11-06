@@ -175,17 +175,38 @@ export const NavigatorView: React.FC<NavigatorViewProps> = ({
         </div>
       </div>
 
-      {/* Primary Action Button */}
-      <button
-        onClick={() => {
-          if (onNavigateToTasbeeh) {
-            onNavigateToTasbeeh(content.suggestedDhikr.text, content.suggestedDhikr.targetCount);
-          }
-        }}
-        className="w-full py-4 rounded-[16px] bg-primary text-white font-alexandria font-bold text-sm flex items-center justify-center gap-2 hover:bg-primary/95 transition-all shadow-sm cursor-pointer active:scale-[0.99]"
-      >
-        <span>انتقل إلى الذكر المقترح</span>
-      </button>
+      {/* Card 4: الذكر المقترح للسبحة */}
+      <div className="bg-surface rounded-[24px] p-5 border border-border shadow-xs space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-semibold text-accent bg-accent/15 px-3 py-1 rounded-full">
+            السبحة والورد
+          </span>
+          <h3 className="font-alexandria font-bold text-sm text-text">
+            الذكر المقترح لهذه اللحظة
+          </h3>
+        </div>
+
+        <div className="rounded-[14px] p-4 text-center my-1 bg-surface-elevated border border-border/70 space-y-1">
+          <strong className="font-alexandria font-bold text-base text-primary block leading-snug">
+            {content.suggestedDhikr.text}
+          </strong>
+          <span className="text-[11px] text-text-muted block">
+            الهدف الموصى به: {content.suggestedDhikr.targetCount} مرة
+          </span>
+        </div>
+
+        <button
+          onClick={() => {
+            if (onNavigateToTasbeeh) {
+              onNavigateToTasbeeh(content.suggestedDhikr.text, content.suggestedDhikr.targetCount);
+            }
+          }}
+          className="w-full py-3.5 rounded-2xl bg-primary text-white font-alexandria font-bold text-xs flex items-center justify-center gap-2 hover:bg-primary/95 transition-all shadow-sm cursor-pointer active:scale-[0.99]"
+        >
+          <span>ابدأ التسبيح الآن بهذا الذكر</span>
+          <ArrowRight className="w-3.5 h-3.5 rotate-180" />
+        </button>
+      </div>
 
       {/* Bottom Hint */}
       <div className="text-center text-xs text-text-muted pt-1">
