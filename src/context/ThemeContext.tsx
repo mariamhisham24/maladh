@@ -39,8 +39,13 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     : theme;
 
   useEffect(() => {
-    // Update HTML attribute
+    // Update HTML attribute and dark class for Tailwind
     document.documentElement.setAttribute('data-theme', effectiveTheme);
+    if (effectiveTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
     
     // Update Meta theme color
     const metaThemeColor = document.querySelector('meta[name="theme-color"]');

@@ -369,16 +369,16 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
 
       {/* Primary Mushaf Frame Page */}
       <div 
-        className="relative overflow-hidden bg-[#FAF7F0] dark:bg-[#151C22] border-2 border-[#D9CAAF]/80 dark:border-[#384350] rounded-3xl p-5 md:p-8 min-h-[500px] flex flex-col justify-between shadow-md transition-colors"
+        className="relative overflow-hidden bg-[#FAF7F0] dark:bg-[#131920] border-2 border-[#D9CAAF]/80 dark:border-[#2C3540] rounded-3xl p-5 md:p-8 min-h-[500px] flex flex-col justify-between shadow-md transition-colors"
         style={{
           boxShadow: 'inset 0 0 0 6px rgba(198, 166, 107, 0.15), 0 12px 32px rgba(0,0,0,0.06)'
         }}
       >
         {/* Top Page Header in Mushaf */}
-        <div className="flex justify-between items-center text-xs text-accent border-b border-[#D9CAAF]/40 dark:border-border pb-2.5 font-sans">
+        <div className="flex justify-between items-center text-xs text-accent border-b border-[#D9CAAF]/40 dark:border-[#2C3540] pb-2.5 font-sans">
           <span>الجزء {currentJuz}</span>
-          <span className="font-alexandria font-bold text-text">سورة {currentSurah.name}</span>
-          <span className="font-mono">ص {pageNumber}</span>
+          <span className="font-alexandria font-bold text-[#14120E] dark:text-[#F5F2EA]">سورة {currentSurah.name}</span>
+          <span className="font-mono text-accent">ص {pageNumber}</span>
         </div>
 
         {/* Center Quran Page Content with Authentic Medina Uthmani Verses */}
@@ -431,7 +431,7 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
                   {/* Ornate Surah Header Banner when a Surah begins on this page */}
                   {block.hasSurahStart && (
                     <div className="my-5 pt-2 select-none">
-                      <div className="relative py-2.5 px-6 rounded-2xl border-2 border-accent/40 bg-accent-light/35 text-center max-w-sm mx-auto shadow-xs">
+                      <div className="relative py-2.5 px-6 rounded-2xl border-2 border-accent/40 bg-accent-light/50 dark:bg-[#1C2530] text-center max-w-sm mx-auto shadow-xs">
                         <div className="font-alexandria font-bold text-accent text-sm md:text-base">
                           سُورَةُ {block.surahName.replace(/^سُورَةُ\s*/, '')}
                         </div>
@@ -450,7 +450,7 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
 
                   {/* Flowing Quran Text for the Surah Block */}
                   <p
-                    className="font-quran leading-[2.6] md:leading-[2.9] text-text select-text"
+                    className="font-quran leading-[2.6] md:leading-[2.9] text-[#14120E] dark:text-[#F5F2EA] select-text"
                     style={{ fontSize: `${fontSizeScale}px` }}
                   >
                     {block.ayahs.map((ayah, aIdx) => {
@@ -474,7 +474,7 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
         </div>
 
         {/* Bottom Page Number in Mushaf */}
-        <div className="border-t border-[#D9CAAF]/40 dark:border-border pt-2 text-center text-xs font-mono text-text-muted">
+        <div className="border-t border-[#D9CAAF]/40 dark:border-[#2C3540] pt-2 text-center text-xs font-mono text-[#777F7A] dark:text-[#A1A8A7]">
           — {pageNumber} —
         </div>
       </div>
