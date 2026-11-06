@@ -26,9 +26,9 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSettings }) => {
         {/* Brand Lockup */}
         <div className="flex items-center gap-3">
           <img 
-            src="/maladh-logo-icon.png" 
+            src="/maladh-logo-original.png" 
             alt="مَلَاذْ" 
-            className="w-9 h-9 rounded-xl border border-accent/40 shadow-sm object-cover shrink-0"
+            className="w-9 h-9 rounded-full shadow-sm object-cover shrink-0"
           />
           <div className="flex flex-col justify-center">
             <div className="flex items-center gap-1.5 leading-none">
