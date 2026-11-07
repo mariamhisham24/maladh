@@ -65,7 +65,7 @@ export const AdhkarView: React.FC<AdhkarViewProps> = ({ onBack, onOpenInStudio }
       // Vibration feedback if supported and enabled
       if ('vibrate' in navigator && localStorage.getItem('maladh_vibration') !== 'false') {
         try {
-          navigator.vibrate(35);
+          navigator.vibrate(45);
         } catch {
           // ignore
         }

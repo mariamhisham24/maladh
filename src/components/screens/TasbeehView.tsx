@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { TASBEEH_PRESETS } from '../../data/seedData';
 import { 
   Sparkles, RotateCcw, Undo2, Vibrate, Volume2, VolumeX, 
-  ListFilter, Plus, Trash2, Check, X, BookmarkCheck 
+  ListFilter, Plus, Trash2, Check, X, BookmarkCheck, Bell 
 } from 'lucide-react';
 import { db } from '../../db';
 
@@ -17,33 +17,177 @@ interface CustomDhikr {
   defaultTarget: number;
 }
 
+export type TasbeehSoundType = 'bead' | 'pulse' | 'water' | 'chime';
+
 const STORAGE_CUSTOM_DHIKRS = 'maladh_custom_dhikrs_list';
 const STORAGE_SOUND_KEY = 'maladh_tasbeeh_sound';
+const STORAGE_SOUND_TYPE_KEY = 'maladh_tasbeeh_sound_type';
 const STORAGE_VIB_KEY = 'maladh_vibration';
 
-// Gentle synthetic wooden/water drop click via Web Audio API (Offline & Zero-Asset)
-const playSoftClick = () => {
+// Shared singleton AudioContext across all taps (persists without hitting mobile browser limit of 6-16 contexts)
+let sharedAudioCtx: AudioContext | null = null;
+
+const getAudioContext = (): AudioContext | null => {
   try {
     const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    if (!AudioContextClass) return;
-    const ctx = new AudioContextClass();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(540, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(240, ctx.currentTime + 0.035);
-
-    gain.gain.setValueAtTime(0.06, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.035);
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    osc.start();
-    osc.stop(ctx.currentTime + 0.04);
+    if (!AudioContextClass) return null;
+    if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
+      sharedAudioCtx = new AudioContextClass();
+    }
+    if (sharedAudioCtx.state === 'suspended') {
+      sharedAudioCtx.resume().catch(() => {});
+    }
+    return sharedAudioCtx;
   } catch {
-    // audio context blocked by browser policy until interaction
+    return null;
+  }
+};
+
+// Play a specific pulse sound based on selected type
+const playTasbeehPulse = (type: TasbeehSoundType = 'bead') => {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  const now = ctx.currentTime;
+
+  try {
+    if (type === 'bead') {
+      // 1. خرز خشب: صوت نقرة خرزة خشبية أصلية دافئة
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc1.type = 'triangle';
+      osc1.frequency.setValueAtTime(420, now);
+      osc1.frequency.exponentialRampToValueAtTime(140, now + 0.028);
+
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(860, now);
+      osc2.frequency.exponentialRampToValueAtTime(320, now + 0.02);
+
+      gain.gain.setValueAtTime(0.09, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.032);
+
+      osc1.connect(gain);
+      osc2.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc1.start(now);
+      osc2.start(now);
+      osc1.stop(now + 0.035);
+      osc2.stop(now + 0.035);
+
+    } else if (type === 'pulse') {
+      // 2. نبض ناعم: انحدار ترددي سلس ومهدئ
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(540, now);
+      osc.frequency.exponentialRampToValueAtTime(220, now + 0.035);
+
+      gain.gain.setValueAtTime(0.07, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.035);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.04);
+
+    } else if (type === 'water') {
+      // 3. قطرة ماء: نغمة مائية نقية
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(680, now);
+      osc.frequency.exponentialRampToValueAtTime(1200, now + 0.02);
+      osc.frequency.exponentialRampToValueAtTime(700, now + 0.05);
+
+      gain.gain.setValueAtTime(0.07, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.055);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.06);
+
+    } else if (type === 'chime') {
+      // 4. رنين هادئ: جرس مصغر بنغمات عليا
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, now);
+
+      gain.gain.setValueAtTime(0.06, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.09);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.1);
+    }
+  } catch {
+    // Audio context blocked or unsupported
+  }
+};
+
+// Play distinct celebratory harmonic chime upon finishing a round
+const playCompletionChime = () => {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  const now = ctx.currentTime;
+  // Four harmonic celestial chime notes: C5 (523Hz), E5 (659Hz), G5 (784Hz), C6 (1046Hz)
+  const notes = [
+    { freq: 523.25, time: 0, duration: 0.35, gainVal: 0.08 },
+    { freq: 659.25, time: 0.08, duration: 0.35, gainVal: 0.08 },
+    { freq: 783.99, time: 0.16, duration: 0.45, gainVal: 0.09 },
+    { freq: 1046.50, time: 0.24, duration: 0.65, gainVal: 0.11 },
+  ];
+
+  notes.forEach(({ freq, time, duration, gainVal }) => {
+    try {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + time);
+
+      gain.gain.setValueAtTime(0.0001, now + time);
+      gain.gain.exponentialRampToValueAtTime(gainVal, now + time + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + time + duration);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now + time);
+      osc.stop(now + time + duration + 0.05);
+    } catch {
+      // ignore
+    }
+  });
+};
+
+// Haptic feedback helper supporting diverse mobile motor sensitivities
+const triggerHaptic = (type: 'tap' | 'complete') => {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return;
+  if (!('vibrate' in navigator)) return;
+
+  try {
+    if (type === 'complete') {
+      // Multi-pulse celebration vibration: short, gap, medium, gap, rich finish
+      navigator.vibrate([60, 50, 100, 60, 220]);
+    } else {
+      // 45ms is the sweet spot for modern and older Android motors (prevents spin-up drops)
+      navigator.vibrate(45);
+    }
+  } catch {
+    // Ignore permissions or policy restrictions
   }
 };
 
@@ -61,6 +205,7 @@ export const TasbeehView: React.FC<TasbeehViewProps> = ({
   // Preferences
   const [vibrationEnabled, setVibrationEnabled] = useState<boolean>(true);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(false);
+  const [soundType, setSoundType] = useState<TasbeehSoundType>('bead');
 
   // Modals & Sheets
   const [showPickerModal, setShowPickerModal] = useState<boolean>(false);
@@ -71,6 +216,7 @@ export const TasbeehView: React.FC<TasbeehViewProps> = ({
   const [justCompletedRound, setJustCompletedRound] = useState<boolean>(false);
 
   const tapButtonRef = useRef<HTMLButtonElement>(null);
+  const hasVibrationSupport = typeof window !== 'undefined' && typeof navigator !== 'undefined' && 'vibrate' in navigator;
 
   // Load preferences, custom dhikrs, and cumulative totals from local storage and Dexie
   useEffect(() => {
@@ -81,6 +227,12 @@ export const TasbeehView: React.FC<TasbeehViewProps> = ({
     // 2. Sound
     const savedSound = localStorage.getItem(STORAGE_SOUND_KEY);
     if (savedSound !== null) setSoundEnabled(savedSound === 'true');
+
+    // 2.1 Sound Type
+    const savedSoundType = localStorage.getItem(STORAGE_SOUND_TYPE_KEY) as TasbeehSoundType;
+    if (savedSoundType && ['bead', 'pulse', 'water', 'chime'].includes(savedSoundType)) {
+      setSoundType(savedSoundType);
+    }
 
     // 3. Custom Dhikrs
     try {
@@ -159,12 +311,10 @@ export const TasbeehView: React.FC<TasbeehViewProps> = ({
 
   const handleTap = () => {
     let nextCount = currentCount + 1;
-    let isNewRoundStart = false;
 
     // If the user already reached target (e.g. at 33 of 33) and taps again, start fresh at 1 for next round
     if (targetCount > 0 && currentCount >= targetCount) {
       nextCount = 1;
-      isNewRoundStart = true;
       setJustCompletedRound(false);
     }
 
@@ -174,29 +324,32 @@ export const TasbeehView: React.FC<TasbeehViewProps> = ({
     const nextCumulative = cumulativeTotal + 1;
     setCumulativeTotal(nextCumulative);
 
-    // Audio feedback
-    if (soundEnabled) {
-      playSoftClick();
-    }
-
     // Check if this tap completes the round target
     const hitTarget = targetCount > 0 && nextCount === targetCount;
+
+    // 1. Audio feedback with dedicated round-completion chime
+    if (soundEnabled) {
+      if (hitTarget) {
+        // Distinct celebratory celestial chime when the cycle finishes!
+        playCompletionChime();
+      } else {
+        // Crisp pulse sound for each regular tap
+        playTasbeehPulse(soundType);
+      }
+    }
+
+    // 2. Tactile haptic feedback
+    if (vibrationEnabled) {
+      if (hitTarget) {
+        triggerHaptic('complete');
+      } else {
+        triggerHaptic('tap');
+      }
+    }
 
     if (hitTarget) {
       setCompletedRounds((prev) => prev + 1);
       setJustCompletedRound(true);
-
-      if (vibrationEnabled && 'vibrate' in navigator) {
-        try {
-          navigator.vibrate([100, 70, 120, 70, 200]); // Distinct celebratory vibration
-        } catch {}
-      }
-    } else if (!isNewRoundStart) {
-      if (vibrationEnabled && 'vibrate' in navigator) {
-        try {
-          navigator.vibrate(28); // Minimal soothing tap
-        } catch {}
-      }
     }
 
     // Persist session state to Dexie
@@ -218,6 +371,8 @@ export const TasbeehView: React.FC<TasbeehViewProps> = ({
       setCurrentCount(prevCount);
       setCumulativeTotal((prev) => Math.max(0, prev - 1));
       setJustCompletedRound(false);
+      if (soundEnabled) playTasbeehPulse(soundType);
+      if (vibrationEnabled) triggerHaptic('tap');
     }
   };
 
@@ -225,6 +380,8 @@ export const TasbeehView: React.FC<TasbeehViewProps> = ({
     setHistory([]);
     setCurrentCount(0);
     setJustCompletedRound(false);
+    if (soundEnabled) playTasbeehPulse(soundType);
+    if (vibrationEnabled) triggerHaptic('tap');
   };
 
   const progressRatio = targetCount > 0 ? Math.min(1, currentCount / targetCount) : 0;
@@ -315,7 +472,7 @@ export const TasbeehView: React.FC<TasbeehViewProps> = ({
           ref={tapButtonRef}
           onClick={handleTap}
           aria-label="تسبيح"
-          className="relative w-52 h-52 sm:w-60 sm:h-60 rounded-full flex flex-col items-center justify-center cursor-pointer transition-all active:scale-[0.96] group focus:outline-none"
+          className="relative w-52 h-52 sm:w-60 sm:h-60 rounded-full flex flex-col items-center justify-center cursor-pointer transition-all active:scale-[0.96] group focus:outline-none touch-manipulation"
           style={{
             background: `radial-gradient(circle at 50% 45%, var(--surface) 60%, var(--surface-elevated) 100%)`,
             boxShadow: justCompletedRound
@@ -422,6 +579,9 @@ export const TasbeehView: React.FC<TasbeehViewProps> = ({
             const nextVib = !vibrationEnabled;
             setVibrationEnabled(nextVib);
             localStorage.setItem(STORAGE_VIB_KEY, String(nextVib));
+            if (nextVib) {
+              triggerHaptic('tap');
+            }
           }}
           className={`flex flex-col items-center justify-center gap-1 py-2 rounded-2xl border text-xs font-semibold cursor-pointer transition-all shadow-xs ${
             vibrationEnabled 
@@ -440,7 +600,9 @@ export const TasbeehView: React.FC<TasbeehViewProps> = ({
             const nextSound = !soundEnabled;
             setSoundEnabled(nextSound);
             localStorage.setItem(STORAGE_SOUND_KEY, String(nextSound));
-            if (nextSound) playSoftClick();
+            if (nextSound) {
+              playTasbeehPulse(soundType);
+            }
           }}
           className={`flex flex-col items-center justify-center gap-1 py-2 rounded-2xl border text-xs font-semibold cursor-pointer transition-all shadow-xs ${
             soundEnabled 
@@ -463,6 +625,64 @@ export const TasbeehView: React.FC<TasbeehViewProps> = ({
           <span className="text-[11px]">تصفير</span>
         </button>
       </div>
+
+      {/* Sound Tone Customization Strip (Visible when Sound is ON) */}
+      {soundEnabled && (
+        <div className="w-full bg-surface border border-border/80 rounded-2xl p-3 animate-fade-in flex flex-col gap-2.5 shadow-xs">
+          <div className="flex items-center justify-between text-xs px-0.5">
+            <span className="text-text font-bold flex items-center gap-1.5">
+              <Volume2 className="w-3.5 h-3.5 text-primary" />
+              <span>نغمة نبضة التسبيح:</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => playCompletionChime()}
+              className="text-[11px] text-accent font-semibold hover:underline flex items-center gap-1 cursor-pointer bg-accent-light/50 border border-accent/25 px-2 py-0.5 rounded-lg transition-colors"
+              title="استمع إلى نغمة إتمام الدورة التي تصدر عند بلوغ الهدف"
+            >
+              <Bell className="w-3 h-3 text-accent" />
+              <span>تجربة رنين إتمام الدورة 🔔</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-4 gap-1.5 text-xs font-sans">
+            {[
+              { id: 'bead', label: 'خرز خشب', desc: 'مسبحة أصلية' },
+              { id: 'pulse', label: 'نبض ناعم', desc: 'هادئ ومريح' },
+              { id: 'water', label: 'قطرة ماء', desc: 'نقي ومنعش' },
+              { id: 'chime', label: 'رنين هادئ', desc: 'جرس خافت' },
+            ].map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  const sType = item.id as TasbeehSoundType;
+                  setSoundType(sType);
+                  localStorage.setItem(STORAGE_SOUND_TYPE_KEY, sType);
+                  playTasbeehPulse(sType);
+                }}
+                className={`py-2 px-1 rounded-xl text-center flex flex-col items-center justify-center transition-all cursor-pointer ${
+                  soundType === item.id
+                    ? 'bg-primary text-white shadow-xs font-bold scale-[1.02]'
+                    : 'bg-surface-elevated text-text-muted hover:text-text border border-border/60'
+                }`}
+              >
+                <span className="text-xs">{item.label}</span>
+                <span className={`text-[9px] mt-0.5 ${soundType === item.id ? 'text-white/85' : 'text-text-muted'}`}>
+                  {item.desc}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Vibration note for iOS Safari users if vibration is turned on */}
+      {vibrationEnabled && !hasVibrationSupport && (
+        <p className="text-[11px] text-text-muted/80 text-center font-sans px-2">
+          (ملاحظة: هواتف iPhone/Safari تقيّد اهتزاز متصفحات الويب نظامياً، يمكنك الاعتماد على الصوت والعد البصري)
+        </p>
+      )}
 
       {/* ======================================================== */}
       {/* 5. Dhikr Picker Modal (Rich Preset Library + Custom List) */}
