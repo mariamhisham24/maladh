@@ -35,6 +35,69 @@ const toArabicNumber = (num: number): string => {
 // In-memory cache across component re-renders
 const memoryCache = new Map<number, ApiAyah[]>();
 
+let fullQuranCache: Record<number, any[]> | null = null;
+let fullQuranPromise: Promise<Record<number, any[]>> | null = null;
+
+async function getFullQuran(): Promise<Record<number, any[]>> {
+  if (fullQuranCache) return fullQuranCache;
+  if (!fullQuranPromise) {
+    fullQuranPromise = fetch('/quran-uthmani.json')
+      .then((res) => {
+        if (!res.ok) throw new Error('Local Quran file not found');
+        return res.json();
+      })
+      .then((data) => {
+        fullQuranCache = data;
+        return data;
+      })
+      .catch((err) => {
+        fullQuranPromise = null;
+        throw err;
+      });
+  }
+  return fullQuranPromise;
+}
+
+async function loadFromLocalQuranJson(pageNumber: number): Promise<ApiAyah[]> {
+  const fullQuran = await getFullQuran();
+  const rawAyahs = fullQuran[pageNumber];
+  if (!rawAyahs || !Array.isArray(rawAyahs)) return [];
+
+  const mapped: ApiAyah[] = rawAyahs.map((a: any) => {
+    const surahMeta = QURAN_SURAHS.find((s) => s.id === a.s) || QURAN_SURAHS[0];
+    return {
+      number: a.a,
+      text: a.t,
+      numberInSurah: a.a,
+      juz: a.j || surahMeta.juz,
+      page: pageNumber,
+      surah: {
+        number: a.s,
+        name: a.sn || surahMeta.name,
+        englishName: a.en || surahMeta.nameEn,
+        revelationType: a.r || (surahMeta.type === 'Makki' ? 'Meccan' : 'Medinan'),
+        numberOfAyahs: surahMeta.ayahCount,
+      },
+    };
+  });
+
+  // Populate Dexie in background
+  try {
+    const recordsToCache = mapped.map((a) => ({
+      id: `local_p${pageNumber}_s${a.surah.number}_a${a.numberInSurah}`,
+      edition_id: 'quran.com-v4',
+      surah_id: a.surah.number,
+      ayah_number: a.numberInSurah,
+      text_uthmani: a.text,
+      page_number: pageNumber,
+      juz_number: a.juz,
+    }));
+    db.quran_ayahs.bulkPut(recordsToCache).catch(() => {});
+  } catch {}
+
+  return mapped;
+}
+
 export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
   pageNumber,
   onPageChange,
@@ -106,10 +169,26 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
           }
         }
       } catch {
-        // Continue to network fetch
+        // Continue to local bundled JSON
       }
 
-      // 3. Network Fetch from Official Quran.com API (Verified King Fahd Complex Text)
+      // 3. Instant Bundled Offline Quran JSON (/quran-uthmani.json)
+      try {
+        const localPageAyahs = await loadFromLocalQuranJson(pageNumber);
+        if (localPageAyahs && localPageAyahs.length > 0) {
+          if (isMounted) {
+            memoryCache.set(pageNumber, localPageAyahs);
+            setAyahs(localPageAyahs);
+            setIsLoading(false);
+            prefetchNeighbors(pageNumber);
+            return;
+          }
+        }
+      } catch (localErr) {
+        console.warn('Local offline Quran fetch failed, falling back to online API:', localErr);
+      }
+
+      // 4. Online Network Fetch fallback (if local json was somehow unavailable)
       if (isMounted) setIsLoading(true);
 
       try {
@@ -189,42 +268,9 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
     [curr + 1, curr - 1].forEach(async (p) => {
       if (p >= 1 && p <= 604 && !memoryCache.has(p)) {
         try {
-          const res = await fetch(`https://api.quran.com/api/v4/quran/verses/uthmani?page_number=${p}`);
-          const d = await res.json();
-          if (d.verses && Array.isArray(d.verses)) {
-            const prefetched: ApiAyah[] = d.verses.map((v: { id: number; verse_key: string; text_uthmani: string }) => {
-              const [surahStr, ayahStr] = v.verse_key.split(':');
-              const sId = parseInt(surahStr, 10);
-              const aNum = parseInt(ayahStr, 10);
-              const surahMeta = QURAN_SURAHS.find((s) => s.id === sId) || QURAN_SURAHS[0];
-
-              return {
-                number: v.id,
-                text: v.text_uthmani.trim(),
-                numberInSurah: aNum,
-                juz: surahMeta.juz,
-                page: p,
-                surah: {
-                  number: sId,
-                  name: surahMeta.name,
-                  englishName: surahMeta.nameEn,
-                  revelationType: surahMeta.type === 'Makki' ? 'Meccan' : 'Medinan',
-                  numberOfAyahs: surahMeta.ayahCount,
-                },
-              };
-            });
-
-            memoryCache.set(p, prefetched);
-            const records = prefetched.map((a) => ({
-              id: `qcom_p${p}_s${a.surah.number}_a${a.numberInSurah}`,
-              edition_id: 'quran.com-v4',
-              surah_id: a.surah.number,
-              ayah_number: a.numberInSurah,
-              text_uthmani: a.text,
-              page_number: p,
-              juz_number: a.juz,
-            }));
-            db.quran_ayahs.bulkPut(records).catch(() => {});
+          const localAyahs = await loadFromLocalQuranJson(p);
+          if (localAyahs && localAyahs.length > 0) {
+            memoryCache.set(p, localAyahs);
           }
         } catch {
           // ignore background prefetch errors
@@ -273,7 +319,7 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
   // Helper to remove duplicated Basmala from text_uthmani if surah header handles it
   const cleanAyahText = (text: string, numberInSurah: number, surahNumber: number): string => {
     if (numberInSurah === 1 && surahNumber !== 1) {
-      return text.replace(/^بِسْمِ\s+ٱللَّهِ\s+ٱلرَّحْمَ[ٰـ]نِ\s+ٱلرَّحِيمِ\s*/, '');
+      return text.replace(/^[\uFEFF\s]*بِسْمِ\s+ٱللَّهِ\s+ٱلرَّحْمَ[ٰـ]نِ\s+ٱلرَّحِيمِ\s*/, '');
     }
     return text;
   };
