@@ -8,6 +8,7 @@ export interface NotificationConfig {
 }
 
 export const STORAGE_NOTIF_CONFIG = 'maladh_notifications_config';
+export const STORAGE_SUNNAH_NOTIF = 'maladh_sunnah_notif_enabled';
 
 export function isNotificationSupported(): boolean {
   return typeof window !== 'undefined' && 'Notification' in window;
@@ -60,7 +61,10 @@ export async function showAppNotification(title: string, options?: NotificationO
   // 1. Primary path: Service Worker showNotification (Mandatory for Android & mobile PWAs)
   if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
     try {
-      const registration = await navigator.serviceWorker.ready;
+      const registration = await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), 1200))
+      ]);
       if (registration && 'showNotification' in registration) {
         await registration.showNotification(title, defaultOptions);
         return true;
@@ -100,9 +104,10 @@ export async function sendTestNotification(): Promise<boolean> {
 /**
  * Send daily sunnah notification
  */
-export async function sendDailySunnahNotification(sunnahTitle: string, hadithSnippet: string) {
-  await showAppNotification('مَـلَاذْ · سنة اليوم المباركة 🌿', {
-    body: `${sunnahTitle}\n${hadithSnippet}`,
+export async function sendDailySunnahNotification(sunnahTitle: string, hadithSnippet: string): Promise<boolean> {
+  const snippet = hadithSnippet.length > 110 ? hadithSnippet.slice(0, 107) + '...' : hadithSnippet;
+  return showAppNotification(`سنة اليوم: ${sunnahTitle} 🌿`, {
+    body: snippet,
     tag: 'maladh-daily-sunnah'
   });
 }
@@ -110,19 +115,41 @@ export async function sendDailySunnahNotification(sunnahTitle: string, hadithSni
 /**
  * Check and dispatch any due reminders based on local time
  */
-export function checkAndDispatchDueReminders() {
+export async function checkAndDispatchDueReminders() {
   if (!isNotificationGranted()) return;
 
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+  const currentHours = String(now.getHours()).padStart(2, '0');
+  const currentMinutes = String(now.getMinutes()).padStart(2, '0');
+  const currentTime = `${currentHours}:${currentMinutes}`;
+
+  // 0. Daily Sunnah Reminder (if enabled)
+  const isSunnahEnabled = localStorage.getItem(STORAGE_SUNNAH_NOTIF) === 'true';
+  if (isSunnahEnabled) {
+    const sunnahSentKey = `maladh_sunnah_sent_${today}`;
+    if (!localStorage.getItem(sunnahSentKey)) {
+      try {
+        const { getDailySunnah } = await import('../data/seedData');
+        const todaySunnah = getDailySunnah();
+        if (todaySunnah) {
+          const sent = await sendDailySunnahNotification(todaySunnah.title, todaySunnah.hadithText);
+          if (sent) {
+            localStorage.setItem(sunnahSentKey, 'true');
+          }
+        }
+      } catch (err) {
+        console.warn('Error sending daily sunnah reminder:', err);
+      }
+    }
+  }
+
+  // 1-3. Adhkar & Wird Reminders
   const rawConfig = localStorage.getItem(STORAGE_NOTIF_CONFIG);
   if (!rawConfig) return;
 
   try {
     const config: NotificationConfig = JSON.parse(rawConfig);
-    const now = new Date();
-    const today = now.toISOString().split('T')[0];
-    const currentHours = String(now.getHours()).padStart(2, '0');
-    const currentMinutes = String(now.getMinutes()).padStart(2, '0');
-    const currentTime = `${currentHours}:${currentMinutes}`;
 
     // 1. Morning Adhkar Reminder
     if (config.morning?.enabled && config.morning.time) {

@@ -201,7 +201,7 @@ export const AdhkarView: React.FC<AdhkarViewProps> = ({ initialCategory, onBack,
                 : 'radial-gradient(ellipse at center, rgba(255, 248, 231, 0.9) 0%, transparent 75%)'
             }}
           >
-            <p className="font-quran text-2xl md:text-[26px] text-text text-center leading-[2.2] py-2">
+            <p className="font-quran text-2xl md:text-[26px] text-text text-center leading-[2.2] py-2 whitespace-pre-line">
               {currentItem.text}
             </p>
           </div>

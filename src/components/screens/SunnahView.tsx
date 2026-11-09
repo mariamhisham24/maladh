@@ -26,6 +26,7 @@ export const SunnahView: React.FC<SunnahViewProps> = ({ onBack, onOpenInStudio }
   const [currentIndex, setCurrentIndex] = useState<number>(initialIndex >= 0 ? initialIndex : 0);
   const [savedIds, setSavedIds] = useState<Record<string, boolean>>({});
   const [notifEnabled, setNotifEnabled] = useState<boolean>(false);
+  const [notifMessage, setNotifMessage] = useState<string | null>(null);
   
   // Category filter & Browse Modal
   const [selectedCategory, setSelectedCategory] = useState<string>('الكل');
@@ -33,7 +34,9 @@ export const SunnahView: React.FC<SunnahViewProps> = ({ onBack, onOpenInStudio }
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   useEffect(() => {
-    setNotifEnabled(isNotificationGranted());
+    const isGranted = isNotificationGranted();
+    const isEnabled = localStorage.getItem('maladh_sunnah_notif_enabled') === 'true';
+    setNotifEnabled(isGranted && isEnabled);
     
     // Load saved favorites
     try {
@@ -59,10 +62,19 @@ export const SunnahView: React.FC<SunnahViewProps> = ({ onBack, onOpenInStudio }
       const granted = await requestNotificationPermission();
       if (granted) {
         setNotifEnabled(true);
-        sendDailySunnahNotification(currentSunnah.title, currentSunnah.hadithText);
+        localStorage.setItem('maladh_sunnah_notif_enabled', 'true');
+        setNotifMessage('تم تفعيل التنبيهات وإرسال إشعار تجريبي بنجاح 🌿');
+        setTimeout(() => setNotifMessage(null), 4000);
+        await sendDailySunnahNotification(currentSunnah.title, currentSunnah.hadithText);
+      } else {
+        setNotifMessage('يرجى السماح بالإشعارات من إعدادات المتصفح');
+        setTimeout(() => setNotifMessage(null), 4000);
       }
     } else {
       setNotifEnabled(false);
+      localStorage.setItem('maladh_sunnah_notif_enabled', 'false');
+      setNotifMessage('تم إيقاف تنبيهات السنن');
+      setTimeout(() => setNotifMessage(null), 3000);
     }
   };
 
@@ -236,23 +248,31 @@ export const SunnahView: React.FC<SunnahViewProps> = ({ onBack, onOpenInStudio }
       </div>
 
       {/* Daily Notification Reminder Card */}
-      <div className="bg-surface rounded-3xl p-4 border border-border shadow-xs flex items-center justify-between">
-        <button
-          onClick={handleToggleNotifications}
-          className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-            notifEnabled
-              ? 'bg-primary text-white shadow-xs'
-              : 'bg-surface-elevated border border-border text-text hover:border-primary/40'
-          }`}
-        >
-          {notifEnabled ? <BellCheck className="w-3.5 h-3.5" /> : <Bell className="w-3.5 h-3.5" />}
-          <span>{notifEnabled ? 'التنبيه مفعّل' : 'تفعيل التنبيه'}</span>
-        </button>
+      <div className="bg-surface rounded-3xl p-4 border border-border shadow-xs space-y-2">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={handleToggleNotifications}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+              notifEnabled
+                ? 'bg-primary text-white shadow-xs'
+                : 'bg-surface-elevated border border-border text-text hover:border-primary/40'
+            }`}
+          >
+            {notifEnabled ? <BellCheck className="w-3.5 h-3.5" /> : <Bell className="w-3.5 h-3.5" />}
+            <span>{notifEnabled ? 'التنبيه مفعّل' : 'تفعيل التنبيه'}</span>
+          </button>
 
-        <div>
-          <h4 className="font-alexandria font-bold text-xs text-text">تنبيه بسنة كل يوم</h4>
-          <p className="text-[11px] text-text-muted mt-0.5">تذكير هادئ بسنة نبوية متجددة يومياً</p>
+          <div>
+            <h4 className="font-alexandria font-bold text-xs text-text">تنبيه بسنة كل يوم</h4>
+            <p className="text-[11px] text-text-muted mt-0.5">تذكير هادئ بسنة نبوية متجددة يومياً</p>
+          </div>
         </div>
+
+        {notifMessage && (
+          <div className="text-[11px] text-center font-medium py-1.5 px-3 rounded-xl bg-primary-light/60 text-primary border border-primary/20 animate-fade-in">
+            {notifMessage}
+          </div>
+        )}
       </div>
 
       {/* Card 2: المعنى والتطبيق */}
