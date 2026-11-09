@@ -52,7 +52,7 @@ export async function showAppNotification(title: string, options?: NotificationO
 
   const defaultOptions: NotificationOptions = {
     icon: '/pwa-192x192.png',
-    badge: '/pwa-192x192.png',
+    badge: '/badge-monochrome.png',
     dir: 'rtl',
     lang: 'ar',
     ...options
