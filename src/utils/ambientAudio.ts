@@ -26,7 +26,7 @@ export const SERENITY_SOUNDS: SoundItemMeta[] = [
     icon: '📖',
     reciterOrType: 'الشيخ مشاري راشد العفاسي',
     description: 'ترتيل شجي يبعث على استشعار نعم الله وطمأنينة القلب',
-    url: 'https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/055.mp3',
+    url: '/sounds/quran/rahman.mp3',
   },
   {
     id: 'quran_mulk',
@@ -34,9 +34,9 @@ export const SERENITY_SOUNDS: SoundItemMeta[] = [
     category: 'quran',
     categoryName: 'تلاوات قرآنية خاشعة',
     icon: '✨',
-    reciterOrType: 'الشيخ عبد الباسط عبد الصمد',
+    reciterOrType: 'الشيخ مشاري راشد العفاسي',
     description: 'تلاوة مهيبة ومريحة للنفس قبل النوم وللراحة العميقة',
-    url: 'https://download.quranicaudio.com/quran/abdulbaset_mujawwad/067.mp3',
+    url: '/sounds/quran/mulk.mp3',
   },
   {
     id: 'quran_yaseen',
@@ -44,9 +44,9 @@ export const SERENITY_SOUNDS: SoundItemMeta[] = [
     category: 'quran',
     categoryName: 'تلاوات قرآنية خاشعة',
     icon: '🌿',
-    reciterOrType: 'الشيخ ماهر المعيقلي',
+    reciterOrType: 'الشيخ مشاري راشد العفاسي',
     description: 'قراءة خاشعة هادئة تشرح الصدر وتزيل الهموم',
-    url: 'https://download.quranicaudio.com/quran/maher_256/036.mp3',
+    url: '/sounds/quran/yaseen.mp3',
   },
   {
     id: 'quran_waqiah',
@@ -54,9 +54,9 @@ export const SERENITY_SOUNDS: SoundItemMeta[] = [
     category: 'quran',
     categoryName: 'تلاوات قرآنية خاشعة',
     icon: '🕊️',
-    reciterOrType: 'الشيخ ياسر الدوسري',
+    reciterOrType: 'الشيخ مشاري راشد العفاسي',
     description: 'ترتيل مؤثر يورث القلب راحة ويقيناً عظيماً بالله',
-    url: 'https://download.quranicaudio.com/quran/yasser_ad-dussary/056.mp3',
+    url: '/sounds/quran/waqiah.mp3',
   },
   {
     id: 'quran_fatiha',
@@ -66,7 +66,7 @@ export const SERENITY_SOUNDS: SoundItemMeta[] = [
     icon: '🤍',
     reciterOrType: 'الشيخ مشاري راشد العفاسي',
     description: 'السبع المثاني والشفاء التام ترتيل هادئ مكرر',
-    url: 'https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/001.mp3',
+    url: '/sounds/quran/fatiha.mp3',
   },
 
   // ==========================================
@@ -164,6 +164,26 @@ export const SERENITY_SOUNDS: SoundItemMeta[] = [
     icon: '🧘',
     reciterOrType: 'تردد السكينة التوافقي 432Hz',
     description: 'رنين نقي متوافق مع الفطرة لتهدئة ضربات القلب وطرد التوتر',
+    isSynthetic: true,
+  },
+  {
+    id: 'serenity_528hz',
+    name: 'صفاء وخشوع قلبي (528Hz)',
+    category: 'serenity',
+    categoryName: 'سكينة وتأمل عميق',
+    icon: '✨',
+    reciterOrType: 'تردد الصفاء التوافقي 528Hz',
+    description: 'موجات صوتية هادئة تشيع الطمأنينة والانشراح في الصدر',
+    isSynthetic: true,
+  },
+  {
+    id: 'serenity_morning',
+    name: 'إشراقة وانشراح الصباح',
+    category: 'serenity',
+    categoryName: 'سكينة وتأمل عميق',
+    icon: '🌅',
+    reciterOrType: 'نغمات صباحية عذبة',
+    description: 'توافقات صوتية لطيفة ومبهجة لبداية يوم مفعم بالحيوية',
     isSynthetic: true,
   },
 ];
@@ -268,6 +288,36 @@ class SerenityAudioPlayer {
     if (id === 'serenity_432hz') {
       // 432Hz harmonic warm soothing chime chords
       const frequencies = [432, 216, 540, 864];
+      frequencies.forEach((f) => {
+        if (!this.audioCtx || !this.syntheticGain) return;
+        const osc = this.audioCtx.createOscillator();
+        const g = this.audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(f, this.audioCtx.currentTime);
+        g.gain.setValueAtTime(0.2, this.audioCtx.currentTime);
+        osc.connect(g);
+        g.connect(this.syntheticGain);
+        osc.start();
+        this.syntheticNodes.push(osc, g);
+      });
+    } else if (id === 'serenity_528hz') {
+      // 528Hz Solfeggio deep meditation / heart serenity chords
+      const frequencies = [528, 264, 792, 1056];
+      frequencies.forEach((f) => {
+        if (!this.audioCtx || !this.syntheticGain) return;
+        const osc = this.audioCtx.createOscillator();
+        const g = this.audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(f, this.audioCtx.currentTime);
+        g.gain.setValueAtTime(0.2, this.audioCtx.currentTime);
+        osc.connect(g);
+        g.connect(this.syntheticGain);
+        osc.start();
+        this.syntheticNodes.push(osc, g);
+      });
+    } else if (id === 'serenity_morning') {
+      // Uplifting gentle morning harmony chords
+      const frequencies = [396, 594, 792, 1188];
       frequencies.forEach((f) => {
         if (!this.audioCtx || !this.syntheticGain) return;
         const osc = this.audioCtx.createOscillator();
