@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ThemeProvider } from './context/ThemeContext';
 import { SoundProvider } from './context/SoundContext';
 import { AmbientSoundPill } from './components/common/AmbientSoundPill';
@@ -16,12 +16,18 @@ import { StudioView } from './components/screens/StudioView';
 import { SettingsView } from './components/screens/SettingsView';
 import { MoreView } from './components/screens/MoreView';
 import type { AdhkarCategory } from './types';
+import { initNotificationScheduler } from './utils/notifications';
 
 export function AppContent() {
   const [activeTab, setActiveTab] = useState<TabKey>('home');
   const [tasbeehConfig, setTasbeehConfig] = useState<{ dhikr?: string; target?: number }>({});
   const [adhkarCategory, setAdhkarCategory] = useState<AdhkarCategory | undefined>(undefined);
   const [studioInitialContent, setStudioInitialContent] = useState<{ text?: string; source?: string } | undefined>(undefined);
+
+  // Initialize background notification scheduler on app mount
+  useEffect(() => {
+    initNotificationScheduler();
+  }, []);
 
   const handleNavigateToTasbeeh = (dhikrText: string, targetCount: number) => {
     setTasbeehConfig({ dhikr: dhikrText, target: targetCount });
