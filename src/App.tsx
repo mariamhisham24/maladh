@@ -15,15 +15,24 @@ import { SunnahView } from './components/screens/SunnahView';
 import { StudioView } from './components/screens/StudioView';
 import { SettingsView } from './components/screens/SettingsView';
 import { MoreView } from './components/screens/MoreView';
+import type { AdhkarCategory } from './types';
 
 export function AppContent() {
   const [activeTab, setActiveTab] = useState<TabKey>('home');
   const [tasbeehConfig, setTasbeehConfig] = useState<{ dhikr?: string; target?: number }>({});
+  const [adhkarCategory, setAdhkarCategory] = useState<AdhkarCategory | undefined>(undefined);
   const [studioInitialContent, setStudioInitialContent] = useState<{ text?: string; source?: string } | undefined>(undefined);
 
   const handleNavigateToTasbeeh = (dhikrText: string, targetCount: number) => {
     setTasbeehConfig({ dhikr: dhikrText, target: targetCount });
     setActiveTab('tasbeeh');
+  };
+
+  const handleNavigate = (tab: TabKey, adhkarCat?: AdhkarCategory) => {
+    if (adhkarCat) {
+      setAdhkarCategory(adhkarCat);
+    }
+    setActiveTab(tab);
   };
 
   const handleOpenInStudio = (text: string, source: string) => {
@@ -34,7 +43,7 @@ export function AppContent() {
   const renderActiveScreen = () => {
     switch (activeTab) {
       case 'home':
-        return <HomeView onNavigate={setActiveTab} onOpenInStudio={handleOpenInStudio} />;
+        return <HomeView onNavigate={handleNavigate} onOpenInStudio={handleOpenInStudio} />;
       case 'navigator':
         return (
           <NavigatorView 
@@ -46,6 +55,7 @@ export function AppContent() {
       case 'adhkar':
         return (
           <AdhkarView 
+            initialCategory={adhkarCategory}
             onBack={() => setActiveTab('home')} 
             onOpenInStudio={handleOpenInStudio}
           />

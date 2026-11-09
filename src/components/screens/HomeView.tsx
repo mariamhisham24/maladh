@@ -12,7 +12,7 @@ import { db } from '../../db';
 import { InstallAppButton } from '../common/PWAInstallBanner';
 
 interface HomeViewProps {
-  onNavigate: (tab: TabKey) => void;
+  onNavigate: (tab: TabKey, adhkarCategory?: AdhkarCategory) => void;
   onOpenInStudio?: (text: string, source: string) => void;
 }
 
@@ -195,7 +195,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onOpenInStudio }
           وردك اليوم
         </h3>
         <button 
-          onClick={() => onNavigate('adhkar')}
+          onClick={() => onNavigate('adhkar', currentCategory)}
           className="text-xs font-semibold text-primary hover:underline cursor-pointer"
         >
           عرض الكل
@@ -204,7 +204,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onOpenInStudio }
 
       {/* Wird Card - 100% Real User Progress */}
       <div 
-        onClick={() => onNavigate('adhkar')}
+        onClick={() => onNavigate('adhkar', currentCategory)}
         className="bg-surface rounded-[20px] p-5 border border-border shadow-xs hover:border-primary/40 cursor-pointer transition-all space-y-3"
       >
         <div className="flex items-center justify-between">

@@ -5,17 +5,39 @@ import { ArrowRight, RotateCcw, Sparkles } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 
 interface AdhkarViewProps {
+  initialCategory?: AdhkarCategory;
   onBack?: () => void;
   onOpenInStudio?: (text: string, source: string) => void;
 }
 
-export const AdhkarView: React.FC<AdhkarViewProps> = ({ onBack, onOpenInStudio }) => {
+const getCategoryByTime = (): AdhkarCategory => {
+  const currentHour = new Date().getHours();
+  if (currentHour >= 4 && currentHour < 15) {
+    return 'morning';
+  } else if (currentHour >= 15 && currentHour < 21) {
+    return 'evening';
+  } else {
+    return 'sleep';
+  }
+};
+
+export const AdhkarView: React.FC<AdhkarViewProps> = ({ initialCategory, onBack, onOpenInStudio }) => {
   const { effectiveTheme } = useTheme();
-  const [activeCategory, setActiveCategory] = useState<AdhkarCategory>('evening');
+  const [activeCategory, setActiveCategory] = useState<AdhkarCategory>(
+    initialCategory || getCategoryByTime()
+  );
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   
   // Track how many times user pressed count for each item
   const [pressedCounts, setPressedCounts] = useState<Record<string, number>>({});
+
+  // Synchronize when initialCategory changes from outside
+  useEffect(() => {
+    if (initialCategory) {
+      setActiveCategory(initialCategory);
+      setCurrentIndex(0);
+    }
+  }, [initialCategory]);
 
   // Load saved counts from localStorage on mount and category switch
   useEffect(() => {
@@ -184,10 +206,17 @@ export const AdhkarView: React.FC<AdhkarViewProps> = ({ onBack, onOpenInStudio }
             </p>
           </div>
 
-          {/* Source Line */}
-          <div className="border-t border-border pt-3 mt-3 flex justify-between items-center text-[11px] text-text-muted leading-normal">
-            <span>{currentItem.source}</span>
-            <span>{currentItem.reward ? 'مروي ومراجع' : 'درجة الحديث عند الحاجة'}</span>
+          {/* Source Line & Verified Reward */}
+          <div className="border-t border-border pt-3 mt-3 space-y-2 text-right">
+            <div className="flex justify-between items-center text-[11px] text-text-muted leading-normal">
+              <span className="font-semibold text-text/90">{currentItem.source}</span>
+              <span className="text-[10px] bg-primary-light/60 text-primary px-2 py-0.5 rounded-full font-medium">حديث صحيح وموثق</span>
+            </div>
+            {currentItem.reward && (
+              <div className="bg-accent-light/40 dark:bg-accent-light/15 border border-accent/20 rounded-xl p-2.5 text-xs text-accent leading-relaxed">
+                ✨ <span className="font-bold">الفضل والبركة:</span> {currentItem.reward}
+              </div>
+            )}
           </div>
 
           {/* Counter Line: Circular Badge + Repetitions text */}

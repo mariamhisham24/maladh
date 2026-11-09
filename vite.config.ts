@@ -19,7 +19,16 @@ export default defineConfig({
         'maladh-logo-icon.png',
         'maladh-logo-lockup.png',
         'botanical-ivory.png',
-        'botanical-night.png'
+        'botanical-night.png',
+        'fonts/AmiriQuran-Regular.woff2',
+        'sounds/rain.mp3',
+        'sounds/thunder.mp3',
+        'sounds/waves.mp3',
+        'sounds/river.mp3',
+        'sounds/forest.mp3',
+        'sounds/wind.mp3',
+        'sounds/campfire.mp3',
+        'sounds/night.mp3'
       ],
       manifest: {
         name: 'مَلَاذْ',
@@ -57,8 +66,38 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         skipWaiting: true,
         clientsClaim: true,
-        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,json}']
+        maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,json,mp3}'],
+        runtimeCaching: [
+          {
+            urlPattern: ({ request, url }) => request.destination === 'audio' || url.pathname.startsWith('/sounds/'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'maladh-offline-audio-v1',
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 365 * 24 * 60 * 60, // 1 year
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          },
+          {
+            urlPattern: /^https:\/\/download\.quranicaudio\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'maladh-quran-audio-cache',
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 60 * 24 * 60 * 60, // 60 days
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          }
+        ]
       }
     })
   ]
