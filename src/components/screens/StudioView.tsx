@@ -165,14 +165,34 @@ export const StudioView: React.FC<StudioViewProps> = ({ initialContent }) => {
     if (!cardRef.current) return;
     setDownloading(true);
     try {
-      const dataUrl = await toPng(cardRef.current, {
-        pixelRatio: 3,
+      // 1. Try toBlob first (most reliable on mobile & desktop)
+      const blob = await toBlob(cardRef.current, {
+        pixelRatio: 2.5,
         cacheBust: true,
       });
-      const link = document.createElement('a');
-      link.download = `maladh-card-${Date.now()}.png`;
-      link.href = dataUrl;
-      link.click();
+
+      if (blob) {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.download = `maladh-card-${Date.now()}.png`;
+        link.href = url;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+      } else {
+        // Fallback to toPng
+        const dataUrl = await toPng(cardRef.current, {
+          pixelRatio: 2.5,
+          cacheBust: true,
+        });
+        const link = document.createElement('a');
+        link.download = `maladh-card-${Date.now()}.png`;
+        link.href = dataUrl;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
     } catch (err) {
       console.error('Export failed:', err);
     } finally {
