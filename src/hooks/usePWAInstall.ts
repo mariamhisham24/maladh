@@ -100,7 +100,12 @@ export function usePWAInstall() {
     };
   }, []);
 
+  const userAgent = typeof window !== 'undefined' ? window.navigator.userAgent.toLowerCase() : '';
+  const isIOS = /iphone|ipad|ipod/.test(userAgent);
+  const isAndroid = /android/.test(userAgent);
+
   const installApp = async () => {
+    // 1. Android & Desktop: Native 1-click install prompt
     let promptEvent = globalDeferredPrompt || (typeof window !== 'undefined' ? (window as any).__pwa_prompt : null);
 
     if (!promptEvent && typeof window !== 'undefined') {
@@ -137,8 +142,25 @@ export function usePWAInstall() {
           (window as any).__pwa_prompt = null;
         }
         notifyAll();
+        return;
       } catch (err) {
         console.warn('Install prompt error:', err);
+      }
+    }
+
+    // 2. iOS (iPhone & iPad): Safari strictly does not allow programmatic beforeinstallprompt.
+    // Instead, calling navigator.share() automatically opens Safari's native iOS sheet with 1 click,
+    // where "إضافة إلى الشاشة الرئيسية" (Add to Home Screen) is immediately presented to the user!
+    if (isIOS && typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: 'مَلَاذْ',
+          text: 'تطبيق مَلَاذْ — رفيقك الروحي للأذكار والقرآن',
+          url: window.location.href,
+        });
+        return;
+      } catch (err) {
+        // User closed the share sheet
       }
     }
   };
@@ -146,6 +168,8 @@ export function usePWAInstall() {
   return {
     isInstallable: !globalIsInstalled,
     isInstalled: globalIsInstalled,
+    isIOS,
+    isAndroid,
     installApp,
     hasNativePrompt: !!(globalDeferredPrompt || (typeof window !== 'undefined' && (window as any).__pwa_prompt)),
   };
