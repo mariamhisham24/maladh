@@ -5,7 +5,7 @@ import {
   ChevronRight, ChevronLeft, Shuffle, BookOpen, Search, X 
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
-import { requestNotificationPermission, isNotificationGranted, sendDailySunnahNotification } from '../../utils/notifications';
+import { requestNotificationPermission, isNotificationGranted, sendDailySunnahNotification, syncScheduleToServiceWorker } from '../../utils/notifications';
 
 interface SunnahViewProps {
   onBack?: () => void;
@@ -66,6 +66,7 @@ export const SunnahView: React.FC<SunnahViewProps> = ({ onBack, onOpenInStudio }
         setNotifMessage('تم تفعيل التنبيهات وإرسال إشعار تجريبي بنجاح 🌿');
         setTimeout(() => setNotifMessage(null), 4000);
         await sendDailySunnahNotification(currentSunnah.title, currentSunnah.hadithText);
+        syncScheduleToServiceWorker();
       } else {
         setNotifMessage('يرجى السماح بالإشعارات من إعدادات المتصفح');
         setTimeout(() => setNotifMessage(null), 4000);
@@ -75,6 +76,7 @@ export const SunnahView: React.FC<SunnahViewProps> = ({ onBack, onOpenInStudio }
       localStorage.setItem('maladh_sunnah_notif_enabled', 'false');
       setNotifMessage('تم إيقاف تنبيهات السنن');
       setTimeout(() => setNotifMessage(null), 3000);
+      syncScheduleToServiceWorker();
     }
   };
 

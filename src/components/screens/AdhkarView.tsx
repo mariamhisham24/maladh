@@ -31,28 +31,87 @@ export const AdhkarView: React.FC<AdhkarViewProps> = ({ initialCategory, onBack,
   // Track how many times user pressed count for each item
   const [pressedCounts, setPressedCounts] = useState<Record<string, number>>({});
 
+  // Helper to determine the best resume index for a category:
+  // 1) First check if there is an explicit saved position for today
+  // 2) If that position is already completed, advance to the first uncompleted dhikr
+  // 3) If no saved position, find the first uncompleted dhikr
+  // 4) If all are completed, start at 0
+  const getResumeIndex = (category: AdhkarCategory, counts: Record<string, number>): number => {
+    const items = SEED_ADHKAR.filter((item) => item.category === category);
+    if (!items.length) return 0;
+
+    const today = new Date().toISOString().split('T')[0];
+    const posKey = `maladh_adhkar_pos_${category}_${today}`;
+    const savedPos = localStorage.getItem(posKey);
+
+    let targetIdx = 0;
+    if (savedPos !== null) {
+      const parsed = parseInt(savedPos, 10);
+      if (!isNaN(parsed) && parsed >= 0 && parsed < items.length) {
+        targetIdx = parsed;
+      }
+    }
+
+    // Check if the item at targetIdx is already completed
+    const targetItem = items[targetIdx];
+    const isTargetDone = targetItem && (counts[targetItem.id] || 0) >= targetItem.count;
+
+    if (isTargetDone) {
+      // Find the first uncompleted dhikr in this category
+      const firstUncompleted = items.findIndex((item) => (counts[item.id] || 0) < item.count);
+      if (firstUncompleted !== -1) {
+        return firstUncompleted;
+      }
+    } else if (savedPos !== null) {
+      return targetIdx;
+    } else {
+      // If no saved position, start at the first uncompleted item if any
+      const firstUncompleted = items.findIndex((item) => (counts[item.id] || 0) < item.count);
+      if (firstUncompleted > 0) {
+        return firstUncompleted;
+      }
+    }
+
+    return targetIdx;
+  };
+
+  const updateCurrentIndex = (newIdx: number | ((prev: number) => number)) => {
+    setCurrentIndex((prev) => {
+      const nextIdx = typeof newIdx === 'function' ? newIdx(prev) : newIdx;
+      const today = new Date().toISOString().split('T')[0];
+      const posKey = `maladh_adhkar_pos_${activeCategory}_${today}`;
+      localStorage.setItem(posKey, String(nextIdx));
+      return nextIdx;
+    });
+  };
+
   // Synchronize when initialCategory changes from outside
   useEffect(() => {
-    if (initialCategory) {
+    if (initialCategory && initialCategory !== activeCategory) {
       setActiveCategory(initialCategory);
-      setCurrentIndex(0);
     }
   }, [initialCategory]);
 
-  // Load saved counts from localStorage on mount and category switch
+  // Load saved counts & resume position from localStorage on mount and category switch
   useEffect(() => {
     const today = new Date().toISOString().split('T')[0];
     const key = `maladh_adhkar_${activeCategory}_${today}`;
     const saved = localStorage.getItem(key);
+    let counts: Record<string, number> = {};
     if (saved) {
       try {
-        setPressedCounts(JSON.parse(saved));
+        counts = JSON.parse(saved);
+        setPressedCounts(counts);
       } catch {
         setPressedCounts({});
       }
     } else {
       setPressedCounts({});
     }
+
+    // Restore user's last reading position for this category
+    const resumeIdx = getResumeIndex(activeCategory, counts);
+    setCurrentIndex(resumeIdx);
   }, [activeCategory]);
 
   const categoryItems = SEED_ADHKAR.filter((item) => item.category === activeCategory);
@@ -96,7 +155,7 @@ export const AdhkarView: React.FC<AdhkarViewProps> = ({ initialCategory, onBack,
       // Auto advance to next if finished and not last
       if (nextDone >= requiredCount && currentIndex < categoryItems.length - 1) {
         setTimeout(() => {
-          setCurrentIndex((idx) => idx + 1);
+          updateCurrentIndex((idx) => idx + 1);
         }, 400);
       }
     }
@@ -165,7 +224,6 @@ export const AdhkarView: React.FC<AdhkarViewProps> = ({ initialCategory, onBack,
               key={c.key}
               onClick={() => {
                 setActiveCategory(c.key);
-                setCurrentIndex(0);
               }}
               className={`px-4 py-2 rounded-[14px] text-xs transition-all shrink-0 cursor-pointer ${
                 isSelected
@@ -266,7 +324,7 @@ export const AdhkarView: React.FC<AdhkarViewProps> = ({ initialCategory, onBack,
           {/* Prev / Next Navigation Row & Card Action */}
           <div className="flex items-center justify-between pt-1 text-xs font-semibold">
             <button
-              onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
+              onClick={() => updateCurrentIndex((prev) => Math.max(0, prev - 1))}
               disabled={currentIndex === 0}
               className="text-text-muted hover:text-text disabled:opacity-30 disabled:pointer-events-none cursor-pointer flex items-center gap-1"
             >
@@ -296,7 +354,7 @@ export const AdhkarView: React.FC<AdhkarViewProps> = ({ initialCategory, onBack,
             </div>
 
             <button
-              onClick={() => setCurrentIndex((prev) => Math.min(categoryItems.length - 1, prev + 1))}
+              onClick={() => updateCurrentIndex((prev) => Math.min(categoryItems.length - 1, prev + 1))}
               disabled={currentIndex === categoryItems.length - 1}
               className="text-primary hover:underline disabled:opacity-30 disabled:pointer-events-none cursor-pointer flex items-center gap-1"
             >

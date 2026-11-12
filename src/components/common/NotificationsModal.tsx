@@ -5,6 +5,7 @@ import {
   sendTestNotification, 
   isNotificationSupported, 
   checkAndDispatchDueReminders,
+  syncScheduleToServiceWorker,
   STORAGE_NOTIF_CONFIG 
 } from '../../utils/notifications';
 
@@ -88,6 +89,9 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
         quran: { enabled: quranReminder, time: quranTime },
       })
     );
+
+    // Sync background scheduler with Service Worker and Android OS alarm manager
+    await syncScheduleToServiceWorker();
 
     // If notifications are active and permission is granted, send an instant confirmation notification
     if (granted && (morningReminder || eveningReminder || quranReminder)) {

@@ -1,5 +1,5 @@
 // Notification Engine for Maladh (Daily Sunnah, Adhkar & Wird Reminders)
-// Fully compatible with mobile PWAs (Service Worker showNotification) & Desktop
+// Fully compatible with mobile PWAs (Service Worker showNotification, Background Sync & Triggers) & Desktop
 
 export interface NotificationConfig {
   morning: { enabled: boolean; time: string };
@@ -50,11 +50,12 @@ export async function showAppNotification(title: string, options?: NotificationO
     if (!granted) return false;
   }
 
-  const defaultOptions: NotificationOptions = {
+  const defaultOptions: NotificationOptions & { vibrate?: number[] } = {
     icon: '/pwa-192x192.png',
     badge: '/badge-monochrome.png',
     dir: 'rtl',
     lang: 'ar',
+    vibrate: [200, 100, 200],
     ...options
   };
 
@@ -110,6 +111,142 @@ export async function sendDailySunnahNotification(sunnahTitle: string, hadithSni
     body: snippet,
     tag: 'maladh-daily-sunnah'
   });
+}
+
+function getNextTriggerDate(timeStr: string): Date {
+  const [hours, minutes] = timeStr.split(':').map(Number);
+  const target = new Date();
+  target.setHours(hours, minutes, 0, 0);
+  if (target.getTime() <= Date.now()) {
+    target.setDate(target.getDate() + 1);
+  }
+  return target;
+}
+
+/**
+ * Schedule future notifications ahead of time using Notification Triggers API
+ * This registers notifications directly into Android OS Alarm Manager so they fire
+ * even if the browser/app is completely closed and device is in background!
+ */
+export async function scheduleUpcomingTriggers(
+  reg: ServiceWorkerRegistration,
+  config: NotificationConfig | null,
+  sunnahEnabled: boolean,
+  todaySunnah: { title: string; snippet: string } | null
+) {
+  if (typeof window === 'undefined') return;
+  const TimestampTrigger = (window as any).TimestampTrigger;
+  if (!TimestampTrigger) return;
+
+  const defaultOptions: NotificationOptions = {
+    icon: '/pwa-192x192.png',
+    badge: '/badge-monochrome.png',
+    dir: 'rtl',
+    lang: 'ar'
+  };
+
+  try {
+    // 1. Morning Adhkar
+    if (config?.morning?.enabled && config.morning.time) {
+      const nextMorning = getNextTriggerDate(config.morning.time);
+      await (reg as any).showNotification('حان وقت أذكار الصباح ☀️', {
+        ...defaultOptions,
+        body: '«أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ» — ابدأ يومك المبارك بورد الصباح والسكينة.',
+        tag: 'maladh-morning-adhkar-scheduled',
+        showTrigger: new TimestampTrigger(nextMorning.getTime())
+      });
+    }
+
+    // 2. Evening Adhkar
+    if (config?.evening?.enabled && config.evening.time) {
+      const nextEvening = getNextTriggerDate(config.evening.time);
+      await (reg as any).showNotification('حان وقت أذكار المساء 🌙', {
+        ...defaultOptions,
+        body: 'حصّن نفسك وأهلك بورد المساء وانعم بالطمأنينة وحفظ الله.',
+        tag: 'maladh-evening-adhkar-scheduled',
+        showTrigger: new TimestampTrigger(nextEvening.getTime())
+      });
+    }
+
+    // 3. Quran Wird
+    if (config?.quran?.enabled && config.quran.time) {
+      const nextQuran = getNextTriggerDate(config.quran.time);
+      await (reg as any).showNotification('وردك القرآني اليومي 📖', {
+        ...defaultOptions,
+        body: '«وَرَتِّلِ الْقُرْآنَ تَرْتِيلًا» — افتح المصحف الشريف وأكمل وردك الهادئ الآن.',
+        tag: 'maladh-quran-wird-scheduled',
+        showTrigger: new TimestampTrigger(nextQuran.getTime())
+      });
+    }
+
+    // 4. Daily Sunnah
+    if (sunnahEnabled && todaySunnah) {
+      const nextSunnah = getNextTriggerDate('09:00');
+      const snippet = todaySunnah.snippet.length > 110 
+        ? todaySunnah.snippet.slice(0, 107) + '...' 
+        : todaySunnah.snippet;
+      await (reg as any).showNotification(`سنة اليوم: ${todaySunnah.title} 🌿`, {
+        ...defaultOptions,
+        body: snippet,
+        tag: 'maladh-daily-sunnah-scheduled',
+        showTrigger: new TimestampTrigger(nextSunnah.getTime())
+      });
+    }
+  } catch (triggerErr) {
+    console.warn('TimestampTrigger scheduling fallback:', triggerErr);
+  }
+}
+
+/**
+ * Sync user schedule and background worker triggers with Service Worker
+ */
+export async function syncScheduleToServiceWorker() {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const rawConfig = localStorage.getItem(STORAGE_NOTIF_CONFIG);
+    const config: NotificationConfig | null = rawConfig ? JSON.parse(rawConfig) : null;
+    const sunnahEnabled = localStorage.getItem(STORAGE_SUNNAH_NOTIF) === 'true';
+    
+    let todaySunnah: { title: string; snippet: string } | null = null;
+    try {
+      const { getDailySunnah } = await import('../data/seedData');
+      const daily = getDailySunnah();
+      if (daily) {
+        todaySunnah = { title: daily.title, snippet: daily.hadithText };
+      }
+    } catch {}
+
+    const payload = {
+      config,
+      sunnahEnabled,
+      todaySunnah
+    };
+
+    if (navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({
+        type: 'MALADH_SYNC_SCHEDULE',
+        payload
+      });
+    }
+
+    // Register Periodic Sync if supported by mobile Chrome
+    if ('periodicSync' in reg) {
+      try {
+        const status = await (navigator.permissions as any)?.query({ name: 'periodic-background-sync' });
+        if (!status || status.state === 'granted') {
+          await (reg as any).periodicSync.register('maladh-periodic-reminders', {
+            minInterval: 15 * 60 * 1000
+          });
+        }
+      } catch {}
+    }
+
+    // Register OS TimestampTriggers if supported
+    await scheduleUpcomingTriggers(reg, config, sunnahEnabled, todaySunnah);
+  } catch (err) {
+    console.warn('Error syncing schedule to SW:', err);
+  }
 }
 
 /**
@@ -201,6 +338,7 @@ export function initNotificationScheduler() {
 
   // Immediate check on boot
   checkAndDispatchDueReminders();
+  syncScheduleToServiceWorker();
 
   // Periodic check every 30 seconds
   if (!schedulerTimer) {
