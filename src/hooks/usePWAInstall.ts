@@ -13,7 +13,6 @@ export interface BeforeInstallPromptEvent extends Event {
 // Module-level singleton state so all components stay 100% in sync
 let globalDeferredPrompt: BeforeInstallPromptEvent | null = null;
 let globalIsInstalled = false;
-let globalShowModal = false;
 const subscribers = new Set<() => void>();
 
 function notifyAll() {
@@ -60,14 +59,12 @@ if (typeof window !== 'undefined') {
   window.addEventListener('pwa-installed', () => {
     globalIsInstalled = true;
     globalDeferredPrompt = null;
-    globalShowModal = false;
     notifyAll();
   });
 
   window.addEventListener('appinstalled', () => {
     globalIsInstalled = true;
     globalDeferredPrompt = null;
-    globalShowModal = false;
     notifyAll();
   });
 }
@@ -103,51 +100,52 @@ export function usePWAInstall() {
     };
   }, []);
 
-  const userAgent = typeof window !== 'undefined' ? window.navigator.userAgent.toLowerCase() : '';
-  const isIOS = /iphone|ipad|ipod/.test(userAgent);
-  const isAndroid = /android/.test(userAgent);
-
   const installApp = async () => {
-    const promptEvent = globalDeferredPrompt || (typeof window !== 'undefined' ? (window as any).__pwa_prompt : null);
+    let promptEvent = globalDeferredPrompt || (typeof window !== 'undefined' ? (window as any).__pwa_prompt : null);
 
+    if (!promptEvent && typeof window !== 'undefined') {
+      // Check if prompt is firing right now
+      promptEvent = await new Promise<BeforeInstallPromptEvent | null>((resolve) => {
+        let resolved = false;
+        const handler = () => {
+          if (!resolved) {
+            resolved = true;
+            resolve((window as any).__pwa_prompt || globalDeferredPrompt);
+          }
+        };
+        window.addEventListener('pwa-prompt-ready', handler, { once: true });
+        window.addEventListener('beforeinstallprompt', handler, { once: true });
+        setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            resolve((window as any).__pwa_prompt || globalDeferredPrompt);
+          }
+        }, 800);
+      });
+    }
+
+    // Trigger native prompt directly with 1 click
     if (promptEvent) {
       try {
         await promptEvent.prompt();
         const choice = await promptEvent.userChoice;
         if (choice && choice.outcome === 'accepted') {
           globalIsInstalled = true;
-          globalShowModal = false;
         }
         globalDeferredPrompt = null;
         if (typeof window !== 'undefined') {
           (window as any).__pwa_prompt = null;
         }
         notifyAll();
-        return;
       } catch (err) {
         console.warn('Install prompt error:', err);
       }
     }
-
-    // If native prompt is not available or dismissed, open guidance modal
-    globalShowModal = true;
-    notifyAll();
-  };
-
-  const setShowInstallModal = (show: boolean) => {
-    globalShowModal = show;
-    notifyAll();
   };
 
   return {
     isInstallable: !globalIsInstalled,
     isInstalled: globalIsInstalled,
-    isIOS,
-    isAndroid,
-    showIOSModal: globalShowModal,
-    setShowIOSModal: setShowInstallModal,
-    showInstallModal: globalShowModal,
-    setShowInstallModal,
     installApp,
     hasNativePrompt: !!(globalDeferredPrompt || (typeof window !== 'undefined' && (window as any).__pwa_prompt)),
   };
