@@ -31,6 +31,7 @@ export default defineConfig({
         'sounds/night.mp3'
       ],
       manifest: {
+        id: '/',
         name: 'مَلَاذْ',
         short_name: 'مَلَاذْ',
         description: 'رفيقك الروحي اليومي للأذكار، القرآن، والسبحة — يعمل محلياً وخاص بالكامل',
@@ -46,7 +47,14 @@ export default defineConfig({
           {
             src: '/pwa-192x192.png',
             sizes: '192x192',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: '/pwa-192x192.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'maskable'
           },
           {
             src: '/pwa-512x512.png',

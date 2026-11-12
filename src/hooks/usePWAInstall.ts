@@ -38,9 +38,29 @@ if (typeof window !== 'undefined') {
 
   globalIsInstalled = checkStandalone();
 
+  // Check early captured prompt from index.html
+  if ((window as any).__pwa_prompt) {
+    globalDeferredPrompt = (window as any).__pwa_prompt;
+  }
+
+  window.addEventListener('pwa-prompt-ready', () => {
+    if ((window as any).__pwa_prompt) {
+      globalDeferredPrompt = (window as any).__pwa_prompt;
+      notifyAll();
+    }
+  });
+
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
+    (window as any).__pwa_prompt = e;
     globalDeferredPrompt = e as BeforeInstallPromptEvent;
+    notifyAll();
+  });
+
+  window.addEventListener('pwa-installed', () => {
+    globalIsInstalled = true;
+    globalDeferredPrompt = null;
+    globalShowModal = false;
     notifyAll();
   });
 
@@ -70,6 +90,12 @@ export function usePWAInstall() {
         globalIsInstalled = isStandalone;
         onUpdate();
       }
+
+      // Check if prompt was captured while component was unmounted
+      if (!globalDeferredPrompt && (window as any).__pwa_prompt) {
+        globalDeferredPrompt = (window as any).__pwa_prompt;
+        onUpdate();
+      }
     }
 
     return () => {
@@ -82,15 +108,20 @@ export function usePWAInstall() {
   const isAndroid = /android/.test(userAgent);
 
   const installApp = async () => {
-    if (globalDeferredPrompt) {
+    const promptEvent = globalDeferredPrompt || (typeof window !== 'undefined' ? (window as any).__pwa_prompt : null);
+
+    if (promptEvent) {
       try {
-        await globalDeferredPrompt.prompt();
-        const choice = await globalDeferredPrompt.userChoice;
-        if (choice.outcome === 'accepted') {
+        await promptEvent.prompt();
+        const choice = await promptEvent.userChoice;
+        if (choice && choice.outcome === 'accepted') {
           globalIsInstalled = true;
           globalShowModal = false;
         }
         globalDeferredPrompt = null;
+        if (typeof window !== 'undefined') {
+          (window as any).__pwa_prompt = null;
+        }
         notifyAll();
         return;
       } catch (err) {
@@ -98,7 +129,7 @@ export function usePWAInstall() {
       }
     }
 
-    // If native prompt is not directly available or dismissed, open guidance modal
+    // If native prompt is not available or dismissed, open guidance modal
     globalShowModal = true;
     notifyAll();
   };
@@ -118,6 +149,6 @@ export function usePWAInstall() {
     showInstallModal: globalShowModal,
     setShowInstallModal,
     installApp,
-    hasNativePrompt: !!globalDeferredPrompt,
+    hasNativePrompt: !!(globalDeferredPrompt || (typeof window !== 'undefined' && (window as any).__pwa_prompt)),
   };
 }
