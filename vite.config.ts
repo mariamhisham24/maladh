@@ -42,7 +42,7 @@ export default defineConfig({
         display: 'standalone',
         start_url: '/',
         scope: '/',
-        orientation: 'portrait',
+        orientation: 'any',
         icons: [
           {
             src: '/pwa-192x192.png',
@@ -109,5 +109,8 @@ export default defineConfig({
         ]
       }
     })
-  ]
+  ],
+  build: {
+    target: ['es2020', 'edge88', 'firefox78', 'chrome79', 'safari13'],
+  }
 })
