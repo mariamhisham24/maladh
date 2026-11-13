@@ -3,6 +3,8 @@ import { Bookmark, ChevronRight, ChevronLeft, Loader2, RefreshCw, AlertCircle, S
 import { QURAN_SURAHS, type SurahMeta } from '../../../data/quranSurahs';
 import { db } from '../../../db';
 import { AyahPickerModal } from './AyahPickerModal';
+import { SurahHeaderBanner } from './SurahHeaderBanner';
+import { AyahEndMarker } from './AyahEndMarker';
 
 interface ApiAyah {
   number: number;
@@ -36,7 +38,7 @@ const toArabicNumber = (num: number): string => {
 const memoryCache = new Map<number, ApiAyah[]>();
 
 // Immediately purge legacy corrupted IndexedDB cache from prior sessions
-const STORAGE_PURGE_KEY = 'maladh_quran_kfqpc_purged_v3';
+const STORAGE_PURGE_KEY = 'maladh_quran_kfqpc_purged_v4';
 if (typeof window !== 'undefined' && !localStorage.getItem(STORAGE_PURGE_KEY)) {
   db.quran_ayahs.clear().catch(() => {});
   localStorage.setItem(STORAGE_PURGE_KEY, 'true');
@@ -48,8 +50,8 @@ let fullQuranPromise: Promise<Record<number, any[]>> | null = null;
 async function getFullQuran(): Promise<Record<number, any[]>> {
   if (fullQuranCache) return fullQuranCache;
   if (!fullQuranPromise) {
-    fullQuranPromise = fetch('/quran-kfqpc.json?v=3')
-      .catch(() => fetch('/quran-uthmani.json?v=3'))
+    fullQuranPromise = fetch('/quran-kfqpc.json?v=20261114_v4')
+      .catch(() => fetch('/quran-uthmani.json?v=20261114_v4'))
       .then((res) => {
         if (!res.ok) throw new Error('Local Quran file not found');
         return res.json();
@@ -423,20 +425,20 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
 
       {/* Primary Mushaf Frame Page */}
       <div 
-        className="relative overflow-hidden bg-[#FAF7F0] dark:bg-[#131920] border-2 border-[#D9CAAF]/80 dark:border-[#2C3540] rounded-3xl p-5 md:p-8 min-h-[500px] flex flex-col justify-between shadow-md transition-colors"
+        className="relative overflow-hidden bg-[#FAF7EE] dark:bg-[#12161E] border-2 border-[#D9CAAF]/90 dark:border-[#2C3540] rounded-3xl p-4 sm:p-7 md:p-9 min-h-[520px] flex flex-col justify-between shadow-lg transition-colors"
         style={{
-          boxShadow: 'inset 0 0 0 6px rgba(198, 166, 107, 0.15), 0 12px 32px rgba(0,0,0,0.06)'
+          boxShadow: 'inset 0 0 0 4px rgba(198, 166, 107, 0.2), inset 0 0 0 8px rgba(198, 166, 107, 0.05), 0 10px 30px rgba(0,0,0,0.06)'
         }}
       >
         {/* Top Page Header in Mushaf */}
-        <div className="flex justify-between items-center text-xs text-accent border-b border-[#D9CAAF]/40 dark:border-[#2C3540] pb-2.5 font-sans">
-          <span>الجزء {currentJuz}</span>
-          <span className="font-alexandria font-bold text-[#14120E] dark:text-[#F5F2EA]">سورة {currentSurah.name}</span>
-          <span className="font-mono text-accent">ص {pageNumber}</span>
+        <div className="flex justify-between items-center text-xs text-[#8A6D3B] dark:text-[#C6A667] border-b border-[#D9CAAF]/50 dark:border-[#2C3540] pb-2.5 font-sans">
+          <span className="font-semibold">الجزء {currentJuz}</span>
+          <span className="font-alexandria font-bold text-[#14120E] dark:text-[#F5F2EA] text-sm">سورة {currentSurah.name}</span>
+          <span className="font-mono font-semibold">ص {pageNumber}</span>
         </div>
 
         {/* Center Quran Page Content with Authentic Medina Uthmani Verses */}
-        <div className="py-6 my-auto text-center">
+        <div className="py-4 sm:py-6 my-auto">
           {isLoading ? (
             <div className="py-20 flex flex-col items-center justify-center gap-3 text-text-muted">
               <Loader2 className="w-8 h-8 text-primary animate-spin" />
@@ -481,46 +483,40 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
                 hasSurahStart: boolean;
                 ayahs: ApiAyah[];
               }>).map((block, bIdx) => (
-                <div key={`block_${block.surahNumber}_${bIdx}`} className="space-y-4">
+                <div key={`block_${block.surahNumber}_${bIdx}`} className="space-y-3">
                   {/* Ornate Surah Header Banner when a Surah begins on this page */}
                   {block.hasSurahStart && (
-                    <div className="my-5 pt-2 select-none">
-                      <div className="relative py-2.5 px-6 rounded-2xl border-2 border-accent/40 bg-accent-light/50 dark:bg-[#1C2530] text-center max-w-sm mx-auto shadow-xs">
-                        <div className="font-alexandria font-bold text-accent text-sm md:text-base">
-                          سُورَةُ {block.surahName.replace(/^سُورَةُ\s*/, '')}
-                        </div>
-                        <div className="text-[10px] text-text-muted mt-0.5 font-sans">
-                          {block.revelationType === 'Meccan' ? 'مَكِّيَّةٌ' : 'مَدَنِيَّةٌ'} · آيَاتُهَا {toArabicNumber(block.numberOfAyahs)}
-                        </div>
-                      </div>
-
-                      {block.surahNumber !== 1 && block.surahNumber !== 9 && (
-                        <div className="text-center font-quran text-xl md:text-2xl text-accent/90 mt-4 mb-2 select-none">
-                          بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ
-                        </div>
-                      )}
-                    </div>
+                    <SurahHeaderBanner
+                      surahNumber={block.surahNumber}
+                      surahName={block.surahName}
+                      revelationType={block.revelationType}
+                      numberOfAyahs={block.numberOfAyahs}
+                    />
                   )}
 
-                  {/* Flowing Quran Text for the Surah Block */}
-                  <p
-                    className="font-quran leading-[2.6] md:leading-[2.9] text-[#14120E] dark:text-[#F5F2EA] select-text"
-                    style={{ fontSize: `${fontSizeScale}px` }}
+                  {/* Flowing Justified Medina Mushaf Verses */}
+                  <div
+                    className="font-quran text-[#14120E] dark:text-[#FAF6EE] select-text text-justify transition-all"
+                    style={{
+                      fontSize: `${fontSizeScale}px`,
+                      lineHeight: '2.6',
+                      textAlign: 'justify',
+                      textJustify: 'inter-word',
+                      textAlignLast: 'center',
+                      direction: 'rtl',
+                    }}
                   >
                     {block.ayahs.map((ayah, aIdx) => {
                       const displayText = cleanAyahText(ayah.text, ayah.numberInSurah, ayah.surah.number);
                       return (
-                        <span key={`ayah_${block.surahNumber}_${ayah.numberInSurah}_${aIdx}`}>
-                          {displayText}
-                          <span 
-                            className="inline-flex items-center justify-center mx-1.5 text-accent font-sans font-bold text-xs select-none align-middle"
-                          >
-                            ﴿{toArabicNumber(ayah.numberInSurah)}﴾
-                          </span>{' '}
-                        </span>
+                        <React.Fragment key={`ayah_${block.surahNumber}_${ayah.numberInSurah}_${aIdx}`}>
+                          <span>{displayText}</span>
+                          <AyahEndMarker ayahNumber={ayah.numberInSurah} />
+                          {' '}
+                        </React.Fragment>
                       );
                     })}
-                  </p>
+                  </div>
                 </div>
               ))}
             </div>
@@ -530,7 +526,7 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
         {/* Bottom Page Number in Mushaf */}
         <div className="border-t border-[#D9CAAF]/40 dark:border-[#2C3540] pt-2.5 flex items-center justify-between text-[11px] text-[#777F7A] dark:text-[#A1A8A7] px-2 select-none">
           <span className="text-[10px] text-text-muted hidden sm:inline">مجمع الملك فهد لطباعة المصحف الشريف</span>
-          <span className="font-mono font-bold text-xs">— {pageNumber} —</span>
+          <span className="font-mono font-bold text-xs text-[#8A6D3B] dark:text-[#C6A667]">﴿ {toArabicNumber(pageNumber)} ﴾</span>
           <span className="text-[10px] text-accent font-medium">مصحف المدينة المنورة</span>
         </div>
       </div>
