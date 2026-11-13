@@ -41,7 +41,7 @@ let fullQuranPromise: Promise<Record<number, any[]>> | null = null;
 async function getFullQuran(): Promise<Record<number, any[]>> {
   if (fullQuranCache) return fullQuranCache;
   if (!fullQuranPromise) {
-    fullQuranPromise = fetch('/quran-uthmani.json')
+    fullQuranPromise = fetch('/quran-uthmani.json?v=kfqpc-2')
       .then((res) => {
         if (!res.ok) throw new Error('Local Quran file not found');
         return res.json();
@@ -85,7 +85,7 @@ async function loadFromLocalQuranJson(pageNumber: number): Promise<ApiAyah[]> {
   try {
     const recordsToCache = mapped.map((a) => ({
       id: `local_p${pageNumber}_s${a.surah.number}_a${a.numberInSurah}`,
-      edition_id: 'quran.com-v4',
+      edition_id: 'king-fahd-complex-v1',
       surah_id: a.surah.number,
       ayah_number: a.numberInSurah,
       text_uthmani: a.text,
@@ -133,11 +133,11 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
         return;
       }
 
-      // 2. Check Dexie IndexedDB cache (Only accept verified quran.com-v4 edition)
+      // 2. Check Dexie IndexedDB cache (Only accept verified king-fahd-complex-v1 edition)
       try {
         const cachedInDb = await db.quran_ayahs.where('page_number').equals(pageNumber).toArray();
         if (cachedInDb && cachedInDb.length > 0) {
-          if (cachedInDb[0].edition_id !== 'quran.com-v4') {
+          if (cachedInDb[0].edition_id !== 'king-fahd-complex-v1') {
             // Purge legacy corrupted cache
             await db.quran_ayahs.where('page_number').equals(pageNumber).delete();
           } else {
@@ -520,8 +520,10 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
         </div>
 
         {/* Bottom Page Number in Mushaf */}
-        <div className="border-t border-[#D9CAAF]/40 dark:border-[#2C3540] pt-2 text-center text-xs font-mono text-[#777F7A] dark:text-[#A1A8A7]">
-          — {pageNumber} —
+        <div className="border-t border-[#D9CAAF]/40 dark:border-[#2C3540] pt-2.5 flex items-center justify-between text-[11px] text-[#777F7A] dark:text-[#A1A8A7] px-2 select-none">
+          <span className="text-[10px] text-text-muted hidden sm:inline">مجمع الملك فهد لطباعة المصحف الشريف</span>
+          <span className="font-mono font-bold text-xs">— {pageNumber} —</span>
+          <span className="text-[10px] text-accent font-medium">مصحف المدينة المنورة</span>
         </div>
       </div>
 
