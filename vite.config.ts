@@ -20,6 +20,8 @@ export default defineConfig({
         'maladh-logo-lockup.png',
         'botanical-ivory.png',
         'botanical-night.png',
+        'fonts/UthmanTN1-Ver10.woff2',
+        'fonts/UthmanTN1B-Ver10.woff2',
         'fonts/AmiriQuran-Regular.woff2',
         'sounds/rain.mp3',
         'sounds/thunder.mp3',

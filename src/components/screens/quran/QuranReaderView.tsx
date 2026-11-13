@@ -378,7 +378,7 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
             </button>
           </div>
 
-          {/* Font Mode Switcher: Uthmani vs Clear Naskh */}
+          {/* Font Mode Switcher: King Fahd Uthman Taha vs Clear Naskh */}
           <button
             onClick={() => {
               const next = fontMode === 'uthmani' ? 'clear' : 'uthmani';
@@ -386,10 +386,10 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
               localStorage.setItem('maladh_quran_font_mode', next);
             }}
             className="px-2.5 py-1.5 rounded-xl bg-surface-elevated border border-border text-xs text-primary font-semibold hover:border-accent/40 cursor-pointer flex items-center gap-1.5 transition-all shadow-xs"
-            title="تبديل نمط الخط القرآني بين خط المصحف والنسخ الواضح"
+            title="تبديل نمط الخط القرآني"
           >
             <Type className="w-3.5 h-3.5 text-accent" />
-            <span className="text-[11px]">{fontMode === 'clear' ? 'النسخ الواضح' : 'خط المصحف'}</span>
+            <span className="text-[11px]">{fontMode === 'clear' ? 'النسخ الواضح' : 'خط مجمع الملك فهد'}</span>
           </button>
 
           {/* Studio Card Shortcut - Opens Ayah Selector Modal */}

@@ -2,6 +2,23 @@
 
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *, .dark, .dark *));
 
+/* Official King Fahd Complex Uthman Taha Naskh Font (مصحف مجمع الملك فهد - عثمان طه) */
+@font-face {
+  font-family: 'KFGQPC Uthman Taha';
+  src: url('/fonts/UthmanTN1-Ver10.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'KFGQPC Uthman Taha';
+  src: url('/fonts/UthmanTN1B-Ver10.woff2') format('woff2');
+  font-weight: bold;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* Authentic Amiri Quran Local Font */
 @font-face {
   font-family: 'Amiri Quran';
@@ -62,11 +79,11 @@
     line-height: 1.45;
   }
 
-  /* Authentic Uthmani Quran Typography with ample breathing room for Tashkeel */
+  /* Official King Fahd Complex Uthman Taha Naskh Font - 100% Authentic Medina Mushaf */
   .font-quran {
-    font-family: 'Amiri Quran', 'Amiri', serif !important;
+    font-family: 'KFGQPC Uthman Taha', 'Amiri Quran', 'Amiri', serif !important;
     line-height: 2.85 !important;
-    letter-spacing: 0.015em !important;
+    letter-spacing: 0.01em !important;
     font-feature-settings: "kern" 1, "mark" 1, "calt" 1 !important;
     text-rendering: optimizeLegibility !important;
     -webkit-font-smoothing: antialiased;
