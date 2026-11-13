@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bookmark, ChevronRight, ChevronLeft, Loader2, RefreshCw, AlertCircle, Sparkles } from 'lucide-react';
+import { Bookmark, ChevronRight, ChevronLeft, Loader2, RefreshCw, AlertCircle, Sparkles, Type } from 'lucide-react';
 import { QURAN_SURAHS, type SurahMeta } from '../../../data/quranSurahs';
 import { db } from '../../../db';
 import { AyahPickerModal } from './AyahPickerModal';
-import { SurahHeaderBanner } from './SurahHeaderBanner';
-import { AyahEndMarker } from './AyahEndMarker';
 
 interface ApiAyah {
   number: number;
@@ -116,6 +114,12 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
   onOpenInStudio,
 }) => {
   const [fontSizeScale, setFontSizeScale] = useState<number>(24);
+  const [fontMode, setFontMode] = useState<'uthmani' | 'clear'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('maladh_quran_font_mode') as 'uthmani' | 'clear') || 'uthmani';
+    }
+    return 'uthmani';
+  });
   const [jumpInput, setJumpInput] = useState<string>('');
   const [showJump, setShowJump] = useState<boolean>(false);
   const [showAyahPicker, setShowAyahPicker] = useState<boolean>(false);
@@ -374,6 +378,20 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
             </button>
           </div>
 
+          {/* Font Mode Switcher: Uthmani vs Clear Naskh */}
+          <button
+            onClick={() => {
+              const next = fontMode === 'uthmani' ? 'clear' : 'uthmani';
+              setFontMode(next);
+              localStorage.setItem('maladh_quran_font_mode', next);
+            }}
+            className="px-2.5 py-1.5 rounded-xl bg-surface-elevated border border-border text-xs text-primary font-semibold hover:border-accent/40 cursor-pointer flex items-center gap-1.5 transition-all shadow-xs"
+            title="تبديل نمط الخط القرآني بين خط المصحف والنسخ الواضح"
+          >
+            <Type className="w-3.5 h-3.5 text-accent" />
+            <span className="text-[11px]">{fontMode === 'clear' ? 'النسخ الواضح' : 'خط المصحف'}</span>
+          </button>
+
           {/* Studio Card Shortcut - Opens Ayah Selector Modal */}
           {onOpenInStudio && ayahs.length > 0 && (
             <button
@@ -401,6 +419,7 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
         </div>
       </div>
 
+
       {/* Jump to Page Popover */}
       {showJump && (
         <form onSubmit={handleJumpSubmit} className="bg-surface-elevated rounded-2xl p-3 border border-border flex items-center gap-2 animate-fade-in">
@@ -425,20 +444,20 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
 
       {/* Primary Mushaf Frame Page */}
       <div 
-        className="relative overflow-hidden bg-[#FAF7EE] dark:bg-[#12161E] border-2 border-[#D9CAAF]/90 dark:border-[#2C3540] rounded-3xl p-4 sm:p-7 md:p-9 min-h-[520px] flex flex-col justify-between shadow-lg transition-colors"
+        className="relative overflow-hidden bg-[#FAF7F0] dark:bg-[#131920] border-2 border-[#D9CAAF]/80 dark:border-[#2C3540] rounded-3xl p-5 md:p-8 min-h-[500px] flex flex-col justify-between shadow-md transition-colors"
         style={{
-          boxShadow: 'inset 0 0 0 4px rgba(198, 166, 107, 0.2), inset 0 0 0 8px rgba(198, 166, 107, 0.05), 0 10px 30px rgba(0,0,0,0.06)'
+          boxShadow: 'inset 0 0 0 6px rgba(198, 166, 107, 0.15), 0 12px 32px rgba(0,0,0,0.06)'
         }}
       >
         {/* Top Page Header in Mushaf */}
-        <div className="flex justify-between items-center text-xs text-[#8A6D3B] dark:text-[#C6A667] border-b border-[#D9CAAF]/50 dark:border-[#2C3540] pb-2.5 font-sans">
-          <span className="font-semibold">الجزء {currentJuz}</span>
-          <span className="font-alexandria font-bold text-[#14120E] dark:text-[#F5F2EA] text-sm">سورة {currentSurah.name}</span>
-          <span className="font-mono font-semibold">ص {pageNumber}</span>
+        <div className="flex justify-between items-center text-xs text-accent border-b border-[#D9CAAF]/40 dark:border-[#2C3540] pb-2.5 font-sans">
+          <span>الجزء {currentJuz}</span>
+          <span className="font-alexandria font-bold text-[#14120E] dark:text-[#F5F2EA]">سورة {currentSurah.name}</span>
+          <span className="font-mono text-accent">ص {pageNumber}</span>
         </div>
 
         {/* Center Quran Page Content with Authentic Medina Uthmani Verses */}
-        <div className="py-4 sm:py-6 my-auto">
+        <div className="py-6 my-auto text-center">
           {isLoading ? (
             <div className="py-20 flex flex-col items-center justify-center gap-3 text-text-muted">
               <Loader2 className="w-8 h-8 text-primary animate-spin" />
@@ -483,40 +502,46 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
                 hasSurahStart: boolean;
                 ayahs: ApiAyah[];
               }>).map((block, bIdx) => (
-                <div key={`block_${block.surahNumber}_${bIdx}`} className="space-y-3">
+                <div key={`block_${block.surahNumber}_${bIdx}`} className="space-y-4">
                   {/* Ornate Surah Header Banner when a Surah begins on this page */}
                   {block.hasSurahStart && (
-                    <SurahHeaderBanner
-                      surahNumber={block.surahNumber}
-                      surahName={block.surahName}
-                      revelationType={block.revelationType}
-                      numberOfAyahs={block.numberOfAyahs}
-                    />
+                    <div className="my-5 pt-2 select-none">
+                      <div className="relative py-2.5 px-6 rounded-2xl border-2 border-accent/40 bg-accent-light/50 dark:bg-[#1C2530] text-center max-w-sm mx-auto shadow-xs">
+                        <div className="font-alexandria font-bold text-accent text-sm md:text-base">
+                          سُورَةُ {block.surahName.replace(/^سُورَةُ\s*/, '')}
+                        </div>
+                        <div className="text-[10px] text-text-muted mt-0.5 font-sans">
+                          {block.revelationType === 'Meccan' ? 'مَكِّيَّةٌ' : 'مَدَنِيَّةٌ'} · آيَاتُهَا {toArabicNumber(block.numberOfAyahs)}
+                        </div>
+                      </div>
+
+                      {block.surahNumber !== 1 && block.surahNumber !== 9 && (
+                        <div className="text-center font-quran text-xl md:text-2xl text-accent/90 mt-4 mb-2 select-none">
+                          بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ
+                        </div>
+                      )}
+                    </div>
                   )}
 
-                  {/* Flowing Justified Medina Mushaf Verses */}
-                  <div
-                    className="font-quran text-[#14120E] dark:text-[#FAF6EE] select-text text-justify transition-all"
-                    style={{
-                      fontSize: `${fontSizeScale}px`,
-                      lineHeight: '2.6',
-                      textAlign: 'justify',
-                      textJustify: 'inter-word',
-                      textAlignLast: 'center',
-                      direction: 'rtl',
-                    }}
+                  {/* Flowing Quran Text for the Surah Block */}
+                  <p
+                    className={`${fontMode === 'clear' ? 'font-quran-clear' : 'font-quran'} text-[#14120E] dark:text-[#F5F2EA] select-text text-center`}
+                    style={{ fontSize: `${fontSizeScale}px` }}
                   >
                     {block.ayahs.map((ayah, aIdx) => {
                       const displayText = cleanAyahText(ayah.text, ayah.numberInSurah, ayah.surah.number);
                       return (
-                        <React.Fragment key={`ayah_${block.surahNumber}_${ayah.numberInSurah}_${aIdx}`}>
-                          <span>{displayText}</span>
-                          <AyahEndMarker ayahNumber={ayah.numberInSurah} />
-                          {' '}
-                        </React.Fragment>
+                        <span key={`ayah_${block.surahNumber}_${ayah.numberInSurah}_${aIdx}`}>
+                          {displayText}
+                          <span 
+                            className="inline-flex items-center justify-center mx-1.5 text-accent font-sans font-bold text-xs select-none align-middle"
+                          >
+                            ﴿{toArabicNumber(ayah.numberInSurah)}﴾
+                          </span>{' '}
+                        </span>
                       );
                     })}
-                  </div>
+                  </p>
                 </div>
               ))}
             </div>
@@ -526,7 +551,7 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
         {/* Bottom Page Number in Mushaf */}
         <div className="border-t border-[#D9CAAF]/40 dark:border-[#2C3540] pt-2.5 flex items-center justify-between text-[11px] text-[#777F7A] dark:text-[#A1A8A7] px-2 select-none">
           <span className="text-[10px] text-text-muted hidden sm:inline">مجمع الملك فهد لطباعة المصحف الشريف</span>
-          <span className="font-mono font-bold text-xs text-[#8A6D3B] dark:text-[#C6A667]">﴿ {toArabicNumber(pageNumber)} ﴾</span>
+          <span className="font-mono font-bold text-xs">— {pageNumber} —</span>
           <span className="text-[10px] text-accent font-medium">مصحف المدينة المنورة</span>
         </div>
       </div>

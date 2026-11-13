@@ -65,16 +65,28 @@
   /* Authentic Uthmani Quran Typography with ample breathing room for Tashkeel */
   .font-quran {
     font-family: 'Amiri Quran', 'Amiri', serif !important;
-    line-height: 2.6 !important;
-    letter-spacing: 0 !important;
-    font-feature-settings: "kern" 1, "mark" 1, "mkmk" 1, "calt" 1 !important;
+    line-height: 2.85 !important;
+    letter-spacing: 0.015em !important;
+    font-feature-settings: "kern" 1, "mark" 1, "calt" 1 !important;
     text-rendering: optimizeLegibility !important;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     direction: rtl;
-    text-align: justify;
-    text-align-last: center;
-    word-spacing: 0.12em;
+    text-align: center;
+  }
+
+  /* Ultra-Clear Modern Naskh font for maximum Tashkeel separation */
+  .font-quran-clear {
+    font-family: 'Noto Naskh Arabic', 'Amiri', serif !important;
+    line-height: 2.95 !important;
+    letter-spacing: 0.02em !important;
+    font-weight: 500 !important;
+    font-feature-settings: "kern" 1, "mark" 1, "calt" 1 !important;
+    text-rendering: optimizeLegibility !important;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    direction: rtl;
+    text-align: center;
   }
 }
 
