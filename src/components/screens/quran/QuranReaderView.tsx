@@ -35,13 +35,21 @@ const toArabicNumber = (num: number): string => {
 // In-memory cache across component re-renders
 const memoryCache = new Map<number, ApiAyah[]>();
 
+// Immediately purge legacy corrupted IndexedDB cache from prior sessions
+const STORAGE_PURGE_KEY = 'maladh_quran_kfqpc_purged_v3';
+if (typeof window !== 'undefined' && !localStorage.getItem(STORAGE_PURGE_KEY)) {
+  db.quran_ayahs.clear().catch(() => {});
+  localStorage.setItem(STORAGE_PURGE_KEY, 'true');
+}
+
 let fullQuranCache: Record<number, any[]> | null = null;
 let fullQuranPromise: Promise<Record<number, any[]>> | null = null;
 
 async function getFullQuran(): Promise<Record<number, any[]>> {
   if (fullQuranCache) return fullQuranCache;
   if (!fullQuranPromise) {
-    fullQuranPromise = fetch('/quran-uthmani.json?v=kfqpc-2')
+    fullQuranPromise = fetch('/quran-kfqpc.json?v=3')
+      .catch(() => fetch('/quran-uthmani.json?v=3'))
       .then((res) => {
         if (!res.ok) throw new Error('Local Quran file not found');
         return res.json();

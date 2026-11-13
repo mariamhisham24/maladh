@@ -5,6 +5,16 @@ import App from './App.tsx'
 import { registerSW } from 'virtual:pwa-register'
 
 // Ensure PWA updates immediately without waiting for app restart
+let refreshing = false;
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!refreshing) {
+      refreshing = true;
+      window.location.reload();
+    }
+  });
+}
+
 const updateSW = registerSW({
   immediate: true,
   onNeedRefresh() {
