@@ -107,6 +107,22 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const currentReciter = QURAN_RECITERS.find((r) => r.id === reciterId) || QURAN_RECITERS[0];
 
+  // Up-to-date refs to eliminate stale closure issues across async callbacks
+  const currentSurahAyahRef = useRef(currentSurahAyah);
+  currentSurahAyahRef.current = currentSurahAyah;
+
+  const pageAyahIndexRef = useRef(pageAyahIndex);
+  pageAyahIndexRef.current = pageAyahIndex;
+
+  const repeatModeRef = useRef(repeatMode);
+  repeatModeRef.current = repeatMode;
+
+  const autoAdvancePageRef = useRef(autoAdvancePage);
+  autoAdvancePageRef.current = autoAdvancePage;
+
+  const isPlayingRef = useRef(isPlaying);
+  isPlayingRef.current = isPlaying;
+
   // Keep internal mode in sync with prop
   useEffect(() => {
     if (mode && mode !== currentMode) {
@@ -155,7 +171,11 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
   // Play audio for a specific surah & ayah
   const playAyahAudio = (sId: number, aNum: number) => {
     if (audioRef.current) {
+      audioRef.current.onended = null;
+      audioRef.current.onerror = null;
+      audioRef.current.oncanplay = null;
       audioRef.current.pause();
+      audioRef.current = null;
     }
 
     const audioUrl = getAyahAudioUrl(sId, aNum, currentReciter.folder);
@@ -169,8 +189,10 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
       audio.play().catch(() => {
         setIsLoading(false);
         setIsPlaying(false);
+        isPlayingRef.current = false;
       });
       setIsPlaying(true);
+      isPlayingRef.current = true;
     };
 
     audio.onended = () => {
@@ -186,9 +208,11 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
 
       fallbackAudio.play().then(() => {
         setIsPlaying(true);
+        isPlayingRef.current = true;
         setIsLoading(false);
       }).catch(() => {
         setIsPlaying(false);
+        isPlayingRef.current = false;
         setIsLoading(false);
       });
 
@@ -199,43 +223,56 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
   };
 
   const handleAudioEnded = (sId: number, aNum: number) => {
-    if (repeatMode === 'ayah') {
+    if (repeatModeRef.current === 'ayah') {
       playAyahAudio(sId, aNum);
       return;
     }
 
     if (currentMode === 'page') {
-      if (pageAyahIndex < pageAyahs.length - 1) {
-        const nextIdx = pageAyahIndex + 1;
+      const currentIdx = pageAyahs.findIndex(
+        (a) => a.surah.number === sId && a.numberInSurah === aNum
+      );
+      const nextIdx = currentIdx >= 0 ? currentIdx + 1 : pageAyahIndexRef.current + 1;
+
+      if (nextIdx < pageAyahs.length) {
         setPageAyahIndex(nextIdx);
+        pageAyahIndexRef.current = nextIdx;
         const nextAyah = pageAyahs[nextIdx];
         onAyahChange(nextAyah.numberInSurah, nextAyah.surah.number);
         playAyahAudio(nextAyah.surah.number, nextAyah.numberInSurah);
       } else {
-        if (repeatMode === 'all') {
+        if (repeatModeRef.current === 'all') {
           setPageAyahIndex(0);
+          pageAyahIndexRef.current = 0;
           const first = pageAyahs[0];
-          onAyahChange(first.numberInSurah, first.surah.number);
-          playAyahAudio(first.surah.number, first.numberInSurah);
-        } else if (autoAdvancePage && onPageAdvance) {
+          if (first) {
+            onAyahChange(first.numberInSurah, first.surah.number);
+            playAyahAudio(first.surah.number, first.numberInSurah);
+          }
+        } else if (autoAdvancePageRef.current && onPageAdvance) {
           onPageAdvance();
         } else {
           setIsPlaying(false);
+          isPlayingRef.current = false;
         }
       }
     } else {
-      if (currentSurahAyah < surah.ayahCount) {
-        const nextAyah = currentSurahAyah + 1;
+      // In Surah mode, strictly advance based on the finished aNum + 1 to avoid any closure lag
+      const nextAyah = aNum + 1;
+      if (nextAyah <= surah.ayahCount) {
         setCurrentSurahAyah(nextAyah);
+        currentSurahAyahRef.current = nextAyah;
         onAyahChange(nextAyah, surah.id);
         playAyahAudio(surah.id, nextAyah);
       } else {
-        if (repeatMode === 'all') {
+        if (repeatModeRef.current === 'all') {
           setCurrentSurahAyah(1);
+          currentSurahAyahRef.current = 1;
           onAyahChange(1, surah.id);
           playAyahAudio(surah.id, 1);
         } else {
           setIsPlaying(false);
+          isPlayingRef.current = false;
         }
       }
     }
@@ -248,16 +285,18 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
         audioRef.current.pause();
       }
       setIsPlaying(false);
+      isPlayingRef.current = false;
     } else {
       if (currentMode === 'page') {
-        const currentAyah = pageAyahs[pageAyahIndex] || pageAyahs[0];
+        const currentAyah = pageAyahs[pageAyahIndexRef.current] || pageAyahs[0];
         if (currentAyah) {
           onAyahChange(currentAyah.numberInSurah, currentAyah.surah.number);
           playAyahAudio(currentAyah.surah.number, currentAyah.numberInSurah);
         }
       } else {
-        onAyahChange(currentSurahAyah, surah.id);
-        playAyahAudio(surah.id, currentSurahAyah);
+        const aNum = currentSurahAyahRef.current || 1;
+        onAyahChange(aNum, surah.id);
+        playAyahAudio(surah.id, aNum);
       }
     }
   };
@@ -265,23 +304,25 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
   // Skip Forward (Next Ayah)
   const handleNextAyah = () => {
     if (currentMode === 'page') {
-      if (pageAyahIndex < pageAyahs.length - 1) {
-        const nextIdx = pageAyahIndex + 1;
+      if (pageAyahIndexRef.current < pageAyahs.length - 1) {
+        const nextIdx = pageAyahIndexRef.current + 1;
         setPageAyahIndex(nextIdx);
+        pageAyahIndexRef.current = nextIdx;
         const next = pageAyahs[nextIdx];
         onAyahChange(next.numberInSurah, next.surah.number);
-        if (isPlaying) {
+        if (isPlayingRef.current) {
           playAyahAudio(next.surah.number, next.numberInSurah);
         }
       } else if (onPageAdvance) {
         onPageAdvance();
       }
     } else {
-      if (currentSurahAyah < surah.ayahCount) {
-        const next = currentSurahAyah + 1;
+      if (currentSurahAyahRef.current < surah.ayahCount) {
+        const next = currentSurahAyahRef.current + 1;
         setCurrentSurahAyah(next);
+        currentSurahAyahRef.current = next;
         onAyahChange(next, surah.id);
-        if (isPlaying) {
+        if (isPlayingRef.current) {
           playAyahAudio(surah.id, next);
         }
       }
@@ -291,21 +332,23 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
   // Skip Backward (Previous Ayah)
   const handlePrevAyah = () => {
     if (currentMode === 'page') {
-      if (pageAyahIndex > 0) {
-        const prevIdx = pageAyahIndex - 1;
+      if (pageAyahIndexRef.current > 0) {
+        const prevIdx = pageAyahIndexRef.current - 1;
         setPageAyahIndex(prevIdx);
+        pageAyahIndexRef.current = prevIdx;
         const prev = pageAyahs[prevIdx];
         onAyahChange(prev.numberInSurah, prev.surah.number);
-        if (isPlaying) {
+        if (isPlayingRef.current) {
           playAyahAudio(prev.surah.number, prev.numberInSurah);
         }
       }
     } else {
-      if (currentSurahAyah > 1) {
-        const prev = currentSurahAyah - 1;
+      if (currentSurahAyahRef.current > 1) {
+        const prev = currentSurahAyahRef.current - 1;
         setCurrentSurahAyah(prev);
+        currentSurahAyahRef.current = prev;
         onAyahChange(prev, surah.id);
-        if (isPlaying) {
+        if (isPlayingRef.current) {
           playAyahAudio(surah.id, prev);
         }
       }
@@ -356,6 +399,9 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
   useEffect(() => {
     return () => {
       if (audioRef.current) {
+        audioRef.current.onended = null;
+        audioRef.current.onerror = null;
+        audioRef.current.oncanplay = null;
         audioRef.current.pause();
         audioRef.current = null;
       }
