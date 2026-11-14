@@ -10,14 +10,37 @@ import {
   Loader2, 
   Volume2, 
   ChevronDown,
-  Repeat
+  Repeat,
+  FileText,
+  BookOpen
 } from 'lucide-react';
 import { type SurahMeta } from '../../../data/quranSurahs';
 
-interface SurahAudioPlayerBarProps {
+export interface ApiAyah {
+  number: number;
+  text: string;
+  numberInSurah: number;
+  juz: number;
+  page: number;
+  surah: {
+    number: number;
+    name: string;
+    englishName: string;
+    revelationType: string;
+    numberOfAyahs: number;
+  };
+}
+
+export interface SurahAudioPlayerBarProps {
+  mode?: 'page' | 'surah';
+  onModeChange?: (mode: 'page' | 'surah') => void;
+  pageNumber?: number;
+  pageAyahs?: ApiAyah[];
   surah: SurahMeta;
   activeAyahNumber: number;
-  onAyahChange: (ayahNumber: number) => void;
+  activeSurahNumber?: number;
+  onAyahChange: (ayahNumber: number, surahNumber?: number) => void;
+  onPageAdvance?: () => void;
   onClose: () => void;
 }
 
@@ -39,18 +62,40 @@ export const getAyahAudioUrl = (surahId: number, ayahNumber: number, reciterFold
 };
 
 export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
+  mode = 'page',
+  onModeChange,
+  pageNumber = 1,
+  pageAyahs = [],
   surah,
   activeAyahNumber,
+  activeSurahNumber,
   onAyahChange,
+  onPageAdvance,
   onClose,
 }) => {
+  const [currentMode, setCurrentMode] = useState<'page' | 'surah'>(mode);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [currentAyah, setCurrentAyah] = useState(activeAyahNumber || 1);
+  
+  // Page mode state: index in pageAyahs (0 to pageAyahs.length - 1)
+  const [pageAyahIndex, setPageAyahIndex] = useState(() => {
+    if (pageAyahs.length > 0 && activeAyahNumber) {
+      const idx = pageAyahs.findIndex(
+        (a) => a.numberInSurah === activeAyahNumber && (!activeSurahNumber || a.surah.number === activeSurahNumber)
+      );
+      return idx >= 0 ? idx : 0;
+    }
+    return 0;
+  });
+
+  // Surah mode state: ayah number (1 to surah.ayahCount)
+  const [currentSurahAyah, setCurrentSurahAyah] = useState(activeAyahNumber || 1);
+
   const [reciterId, setReciterId] = useState(() => {
     return localStorage.getItem('maladh_quran_reciter') || 'alafasy';
   });
-  const [repeatMode, setRepeatMode] = useState<'none' | 'ayah' | 'surah'>('none');
+  const [repeatMode, setRepeatMode] = useState<'none' | 'ayah' | 'all'>('none');
+  const [autoAdvancePage, setAutoAdvancePage] = useState(true);
 
   // Offline download states
   const [isDownloaded, setIsDownloaded] = useState(false);
@@ -58,43 +103,60 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
   const [downloadProgress, setDownloadProgress] = useState(0);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
-
   const currentReciter = QURAN_RECITERS.find((r) => r.id === reciterId) || QURAN_RECITERS[0];
 
-  // Sync currentAyah with activeAyahNumber when changed by parent
+  // Keep internal mode in sync with prop
   useEffect(() => {
-    if (activeAyahNumber && activeAyahNumber !== currentAyah) {
-      setCurrentAyah(activeAyahNumber);
+    if (mode && mode !== currentMode) {
+      setCurrentMode(mode);
     }
-  }, [activeAyahNumber]);
+  }, [mode]);
 
-  // Check if current surah is already cached offline
+  // When activeAyahNumber changes externally, update internal index
+  useEffect(() => {
+    if (currentMode === 'page' && pageAyahs.length > 0) {
+      const idx = pageAyahs.findIndex(
+        (a) => a.numberInSurah === activeAyahNumber && (!activeSurahNumber || a.surah.number === activeSurahNumber)
+      );
+      if (idx >= 0 && idx !== pageAyahIndex) {
+        setPageAyahIndex(idx);
+      }
+    } else if (currentMode === 'surah') {
+      if (activeAyahNumber && activeAyahNumber !== currentSurahAyah) {
+        setCurrentSurahAyah(activeAyahNumber);
+      }
+    }
+  }, [activeAyahNumber, activeSurahNumber, currentMode, pageAyahs]);
+
+  // Check if current target (page or surah) is cached offline
   useEffect(() => {
     const checkOfflineCache = async () => {
       if (typeof window === 'undefined' || !('caches' in window)) return;
       try {
         const cache = await caches.open('maladh-quran-audio-cache');
-        const firstAyahUrl = getAyahAudioUrl(surah.id, 1, currentReciter.folder);
-        const match = await cache.match(firstAyahUrl);
-        if (match) {
-          setIsDownloaded(true);
+        if (currentMode === 'page' && pageAyahs.length > 0) {
+          const first = pageAyahs[0];
+          const match = await cache.match(getAyahAudioUrl(first.surah.number, first.numberInSurah, currentReciter.folder));
+          setIsDownloaded(Boolean(match));
         } else {
-          setIsDownloaded(false);
+          const firstAyahUrl = getAyahAudioUrl(surah.id, 1, currentReciter.folder);
+          const match = await cache.match(firstAyahUrl);
+          setIsDownloaded(Boolean(match));
         }
       } catch {
         setIsDownloaded(false);
       }
     };
     checkOfflineCache();
-  }, [surah.id, currentReciter.folder]);
+  }, [currentMode, surah.id, pageAyahs, currentReciter.folder]);
 
-  // Play audio for currentAyah
-  const playCurrentAyah = (ayahNum: number) => {
+  // Play audio for a specific surah & ayah
+  const playAyahAudio = (sId: number, aNum: number) => {
     if (audioRef.current) {
       audioRef.current.pause();
     }
 
-    const audioUrl = getAyahAudioUrl(surah.id, ayahNum, currentReciter.folder);
+    const audioUrl = getAyahAudioUrl(sId, aNum, currentReciter.folder);
     setIsLoading(true);
 
     const audio = new Audio(audioUrl);
@@ -110,13 +172,13 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
     };
 
     audio.onended = () => {
-      handleAyahEnded(ayahNum);
+      handleAudioEnded(sId, aNum);
     };
 
     audio.onerror = () => {
       // Fallback url
-      const sStr = String(surah.id).padStart(3, '0');
-      const aStr = String(ayahNum).padStart(3, '0');
+      const sStr = String(sId).padStart(3, '0');
+      const aStr = String(aNum).padStart(3, '0');
       const fallbackUrl = `https://verses.quran.com/Alafasy/mp3/${sStr}${aStr}.mp3`;
       const fallbackAudio = new Audio(fallbackUrl);
       audioRef.current = fallbackAudio;
@@ -130,29 +192,55 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
       });
 
       fallbackAudio.onended = () => {
-        handleAyahEnded(ayahNum);
+        handleAudioEnded(sId, aNum);
       };
     };
   };
 
-  const handleAyahEnded = (finishedAyah: number) => {
+  const handleAudioEnded = (sId: number, aNum: number) => {
     if (repeatMode === 'ayah') {
-      playCurrentAyah(finishedAyah);
+      playAyahAudio(sId, aNum);
       return;
     }
 
-    if (finishedAyah < surah.ayahCount) {
-      const nextAyah = finishedAyah + 1;
-      setCurrentAyah(nextAyah);
-      onAyahChange(nextAyah);
-      playCurrentAyah(nextAyah);
-    } else {
-      if (repeatMode === 'surah') {
-        setCurrentAyah(1);
-        onAyahChange(1);
-        playCurrentAyah(1);
+    if (currentMode === 'page') {
+      // PAGE MODE SEQUENCING
+      if (pageAyahIndex < pageAyahs.length - 1) {
+        const nextIdx = pageAyahIndex + 1;
+        setPageAyahIndex(nextIdx);
+        const nextAyah = pageAyahs[nextIdx];
+        onAyahChange(nextAyah.numberInSurah, nextAyah.surah.number);
+        playAyahAudio(nextAyah.surah.number, nextAyah.numberInSurah);
       } else {
-        setIsPlaying(false);
+        // Reached end of page!
+        if (repeatMode === 'all') {
+          // Loop current page
+          setPageAyahIndex(0);
+          const first = pageAyahs[0];
+          onAyahChange(first.numberInSurah, first.surah.number);
+          playAyahAudio(first.surah.number, first.numberInSurah);
+        } else if (autoAdvancePage && onPageAdvance) {
+          // Advance to next page automatically!
+          onPageAdvance();
+        } else {
+          setIsPlaying(false);
+        }
+      }
+    } else {
+      // SURAH MODE SEQUENCING
+      if (currentSurahAyah < surah.ayahCount) {
+        const nextAyah = currentSurahAyah + 1;
+        setCurrentSurahAyah(nextAyah);
+        onAyahChange(nextAyah, surah.id);
+        playAyahAudio(surah.id, nextAyah);
+      } else {
+        if (repeatMode === 'all') {
+          setCurrentSurahAyah(1);
+          onAyahChange(1, surah.id);
+          playAyahAudio(surah.id, 1);
+        } else {
+          setIsPlaying(false);
+        }
       }
     }
   };
@@ -165,32 +253,78 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
       }
       setIsPlaying(false);
     } else {
-      playCurrentAyah(currentAyah);
+      if (currentMode === 'page') {
+        const currentAyah = pageAyahs[pageAyahIndex] || pageAyahs[0];
+        if (currentAyah) {
+          onAyahChange(currentAyah.numberInSurah, currentAyah.surah.number);
+          playAyahAudio(currentAyah.surah.number, currentAyah.numberInSurah);
+        }
+      } else {
+        onAyahChange(currentSurahAyah, surah.id);
+        playAyahAudio(surah.id, currentSurahAyah);
+      }
     }
   };
 
   // Skip Forward (Next Ayah)
   const handleNextAyah = () => {
-    if (currentAyah < surah.ayahCount) {
-      const next = currentAyah + 1;
-      setCurrentAyah(next);
-      onAyahChange(next);
-      if (isPlaying) {
-        playCurrentAyah(next);
+    if (currentMode === 'page') {
+      if (pageAyahIndex < pageAyahs.length - 1) {
+        const nextIdx = pageAyahIndex + 1;
+        setPageAyahIndex(nextIdx);
+        const next = pageAyahs[nextIdx];
+        onAyahChange(next.numberInSurah, next.surah.number);
+        if (isPlaying) {
+          playAyahAudio(next.surah.number, next.numberInSurah);
+        }
+      } else if (onPageAdvance) {
+        onPageAdvance();
+      }
+    } else {
+      if (currentSurahAyah < surah.ayahCount) {
+        const next = currentSurahAyah + 1;
+        setCurrentSurahAyah(next);
+        onAyahChange(next, surah.id);
+        if (isPlaying) {
+          playAyahAudio(surah.id, next);
+        }
       }
     }
   };
 
   // Skip Backward (Previous Ayah)
   const handlePrevAyah = () => {
-    if (currentAyah > 1) {
-      const prev = currentAyah - 1;
-      setCurrentAyah(prev);
-      onAyahChange(prev);
-      if (isPlaying) {
-        playCurrentAyah(prev);
+    if (currentMode === 'page') {
+      if (pageAyahIndex > 0) {
+        const prevIdx = pageAyahIndex - 1;
+        setPageAyahIndex(prevIdx);
+        const prev = pageAyahs[prevIdx];
+        onAyahChange(prev.numberInSurah, prev.surah.number);
+        if (isPlaying) {
+          playAyahAudio(prev.surah.number, prev.numberInSurah);
+        }
+      }
+    } else {
+      if (currentSurahAyah > 1) {
+        const prev = currentSurahAyah - 1;
+        setCurrentSurahAyah(prev);
+        onAyahChange(prev, surah.id);
+        if (isPlaying) {
+          playAyahAudio(surah.id, prev);
+        }
       }
     }
+  };
+
+  // Switch between Page mode and Surah mode
+  const handleSwitchMode = (targetMode: 'page' | 'surah') => {
+    if (targetMode === currentMode) return;
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+    setIsPlaying(false);
+    setCurrentMode(targetMode);
+    onModeChange?.(targetMode);
   };
 
   // Clean up audio on unmount
@@ -203,8 +337,8 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
     };
   }, []);
 
-  // Download entire Surah for 100% offline playback
-  const handleDownloadSurahOffline = async () => {
+  // Download entire current Page or Surah for offline playback
+  const handleDownloadOffline = async () => {
     if (isDownloading || isDownloaded) return;
     if (typeof window === 'undefined' || !('caches' in window)) {
       alert('ميزة التخزين بدون إنترنت مدعومة في المتصفحات الحديثة وتطبيق PWA.');
@@ -216,68 +350,95 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
 
     try {
       const cache = await caches.open('maladh-quran-audio-cache');
-      const total = surah.ayahCount;
 
-      for (let i = 1; i <= total; i++) {
-        const url = getAyahAudioUrl(surah.id, i, currentReciter.folder);
-        // Only fetch if not already cached
-        const matched = await cache.match(url);
-        if (!matched) {
-          try {
-            const resp = await fetch(url);
-            if (resp.ok) {
-              await cache.put(url, resp);
-            }
-          } catch (e) {
-            console.warn(`Failed caching ayah ${i}:`, e);
+      if (currentMode === 'page') {
+        const total = pageAyahs.length;
+        for (let i = 0; i < total; i++) {
+          const item = pageAyahs[i];
+          const url = getAyahAudioUrl(item.surah.number, item.numberInSurah, currentReciter.folder);
+          const matched = await cache.match(url);
+          if (!matched) {
+            try {
+              const resp = await fetch(url);
+              if (resp.ok) await cache.put(url, resp);
+            } catch {}
           }
+          setDownloadProgress(Math.round(((i + 1) / total) * 100));
         }
-        setDownloadProgress(Math.round((i / total) * 100));
+      } else {
+        const total = surah.ayahCount;
+        for (let i = 1; i <= total; i++) {
+          const url = getAyahAudioUrl(surah.id, i, currentReciter.folder);
+          const matched = await cache.match(url);
+          if (!matched) {
+            try {
+              const resp = await fetch(url);
+              if (resp.ok) await cache.put(url, resp);
+            } catch {}
+          }
+          setDownloadProgress(Math.round((i / total) * 100));
+        }
       }
 
       setIsDownloaded(true);
       setIsDownloading(false);
     } catch (err) {
-      console.error('Surah download failed:', err);
+      console.error('Audio download failed:', err);
       setIsDownloading(false);
     }
   };
 
+  const currentDisplayAyah = currentMode === 'page' 
+    ? (pageAyahs[pageAyahIndex] || pageAyahs[0])
+    : null;
+
   return (
     <div 
-      className="fixed bottom-3 sm:bottom-6 left-3 right-3 sm:left-auto sm:right-6 sm:w-[480px] z-40 bg-surface/95 dark:bg-surface-elevated/95 backdrop-blur-md border-2 border-primary/30 rounded-2xl p-3 sm:p-3.5 shadow-2xl animate-slide-up"
+      className="fixed bottom-3 sm:bottom-6 left-3 right-3 sm:left-auto sm:right-6 sm:w-[500px] z-40 bg-surface/95 dark:bg-surface-elevated/95 backdrop-blur-md border-2 border-primary/30 rounded-2xl p-3 sm:p-3.5 shadow-2xl animate-slide-up"
       dir="rtl"
     >
+      {/* Top Header: Mode Switcher & Title */}
       <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-2 mb-2">
-        {/* Surah & Ayah Status */}
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
-            <Volume2 className="w-4 h-4 animate-pulse" />
-          </div>
-          <div>
-            <h4 className="font-alexandria font-bold text-xs sm:text-sm text-text">
-              سورة {surah.name} • الآية {toArabicNumber(currentAyah)}
-            </h4>
-            <span className="text-[10px] text-text-muted">
-              من {toArabicNumber(surah.ayahCount)} آية
-            </span>
-          </div>
+        {/* Mode Switcher Tabs */}
+        <div className="flex items-center gap-1 bg-surface-elevated dark:bg-surface border border-border/70 p-0.5 rounded-xl">
+          <button
+            onClick={() => handleSwitchMode('page')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer ${
+              currentMode === 'page'
+                ? 'bg-primary text-white shadow-xs'
+                : 'text-text-muted hover:text-text'
+            }`}
+          >
+            <FileText className="w-3 h-3" />
+            <span>الصفحة ({toArabicNumber(pageNumber)})</span>
+          </button>
+          <button
+            onClick={() => handleSwitchMode('surah')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer ${
+              currentMode === 'surah'
+                ? 'bg-primary text-white shadow-xs'
+                : 'text-text-muted hover:text-text'
+            }`}
+          >
+            <BookOpen className="w-3 h-3" />
+            <span>السورة</span>
+          </button>
         </div>
 
         {/* Right side controls: Offline Download & Close */}
         <div className="flex items-center gap-1.5">
           {/* Download for offline button */}
           <button
-            onClick={handleDownloadSurahOffline}
+            onClick={handleDownloadOffline}
             disabled={isDownloading}
-            className={`px-2.5 py-1.5 rounded-xl text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer ${
+            className={`px-2 py-1 rounded-xl text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer ${
               isDownloaded
                 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
                 : isDownloading
                 ? 'bg-primary/10 text-primary border border-primary/30'
                 : 'bg-surface border border-border text-text hover:border-primary/50'
             }`}
-            title={isDownloaded ? 'السورة محفوظة أوفلاين بالكامل' : 'تحميل السورة كاملة للاستماع بدون إنترنت'}
+            title={isDownloaded ? 'المقطع الصوتي محفوظ أوفلاين' : 'تحميل المقطع للاستماع بدون إنترنت'}
           >
             {isDownloading ? (
               <>
@@ -292,7 +453,7 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
             ) : (
               <>
                 <Download className="w-3.5 h-3.5" />
-                <span>تحميل أوفلاين</span>
+                <span className="hidden xs:inline">تحميل أوفلاين</span>
               </>
             )}
           </button>
@@ -314,6 +475,49 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
         </div>
       </div>
 
+      {/* Track Info Banner */}
+      <div className="flex items-center gap-2 mb-2.5 px-0.5">
+        <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+          <Volume2 className={`w-4 h-4 ${isPlaying ? 'animate-pulse text-emerald-600 dark:text-emerald-400' : ''}`} />
+        </div>
+        <div className="min-w-0 flex-1">
+          {currentMode === 'page' && currentDisplayAyah ? (
+            <>
+              <h4 className="font-alexandria font-bold text-xs sm:text-sm text-text truncate">
+                صفحة {toArabicNumber(pageNumber)} · سورة {currentDisplayAyah.surah.name} • آية {toArabicNumber(currentDisplayAyah.numberInSurah)}
+              </h4>
+              <span className="text-[10px] text-text-muted">
+                الآية {toArabicNumber(pageAyahIndex + 1)} من {toArabicNumber(pageAyahs.length)} بالصفحة
+              </span>
+            </>
+          ) : (
+            <>
+              <h4 className="font-alexandria font-bold text-xs sm:text-sm text-text truncate">
+                سورة {surah.name} • الآية {toArabicNumber(currentSurahAyah)}
+              </h4>
+              <span className="text-[10px] text-text-muted">
+                من {toArabicNumber(surah.ayahCount)} آية
+              </span>
+            </>
+          )}
+        </div>
+
+        {/* Auto Page Advance indicator in page mode */}
+        {currentMode === 'page' && onPageAdvance && (
+          <button
+            onClick={() => setAutoAdvancePage((prev) => !prev)}
+            className={`text-[10px] px-2 py-1 rounded-lg border font-sans transition-all cursor-pointer ${
+              autoAdvancePage
+                ? 'bg-primary/10 border-primary/30 text-primary font-semibold'
+                : 'bg-surface border-border text-text-muted'
+            }`}
+            title="الانتقال التلقائي للصفحة التالية عند انتهاء تلاوة الصفحة"
+          >
+            <span>التالي تلقائياً: {autoAdvancePage ? 'مفعل' : 'معطل'}</span>
+          </button>
+        )}
+      </div>
+
       {/* Main Playback Bar Controls */}
       <div className="flex items-center justify-between gap-2">
         {/* Reciter Selector */}
@@ -325,10 +529,15 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
               setReciterId(newRec);
               localStorage.setItem('maladh_quran_reciter', newRec);
               if (isPlaying) {
-                playCurrentAyah(currentAyah);
+                if (currentMode === 'page') {
+                  const curr = pageAyahs[pageAyahIndex];
+                  if (curr) playAyahAudio(curr.surah.number, curr.numberInSurah);
+                } else {
+                  playAyahAudio(surah.id, currentSurahAyah);
+                }
               }
             }}
-            className="appearance-none bg-surface border border-border rounded-xl px-2 py-1 pr-1.5 pl-5 text-[11px] font-sans text-text cursor-pointer focus:outline-none focus:border-primary"
+            className="appearance-none bg-surface border border-border rounded-xl px-2 py-1.5 pr-2 pl-6 text-[11px] font-sans text-text cursor-pointer focus:outline-none focus:border-primary"
           >
             {QURAN_RECITERS.map((r) => (
               <option key={r.id} value={r.id}>
@@ -344,7 +553,7 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
           {/* Previous Ayah */}
           <button
             onClick={handlePrevAyah}
-            disabled={currentAyah <= 1}
+            disabled={currentMode === 'page' ? pageAyahIndex <= 0 : currentSurahAyah <= 1}
             className="w-8 h-8 rounded-xl bg-surface border border-border text-text disabled:opacity-30 disabled:pointer-events-none hover:border-primary/50 flex items-center justify-center cursor-pointer transition-all"
             title="الآية السابقة"
           >
@@ -356,7 +565,7 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
             onClick={handleTogglePlay}
             disabled={isLoading}
             className="w-10 h-10 rounded-xl bg-primary text-white hover:bg-primary/95 flex items-center justify-center cursor-pointer shadow-md active:scale-95 transition-all"
-            title={isPlaying ? 'إيقاف مؤقت' : 'تشغيل السورة'}
+            title={isPlaying ? 'إيقاف مؤقت' : 'بدء التلاوة'}
           >
             {isLoading ? (
               <Loader2 className="w-5 h-5 animate-spin" />
@@ -370,7 +579,7 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
           {/* Next Ayah */}
           <button
             onClick={handleNextAyah}
-            disabled={currentAyah >= surah.ayahCount}
+            disabled={currentMode === 'page' ? (pageAyahIndex >= pageAyahs.length - 1 && !onPageAdvance) : currentSurahAyah >= surah.ayahCount}
             className="w-8 h-8 rounded-xl bg-surface border border-border text-text disabled:opacity-30 disabled:pointer-events-none hover:border-primary/50 flex items-center justify-center cursor-pointer transition-all"
             title="الآية التالية"
           >
@@ -381,7 +590,7 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
         {/* Repeat Mode Toggle */}
         <button
           onClick={() => {
-            const next = repeatMode === 'none' ? 'ayah' : repeatMode === 'ayah' ? 'surah' : 'none';
+            const next = repeatMode === 'none' ? 'ayah' : repeatMode === 'ayah' ? 'all' : 'none';
             setRepeatMode(next);
           }}
           className={`px-2 py-1 rounded-xl text-[10px] font-semibold flex items-center gap-1 border transition-all cursor-pointer ${
@@ -392,13 +601,13 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
           title={
             repeatMode === 'ayah' 
               ? 'تكرار الآية الحالية' 
-              : repeatMode === 'surah' 
-              ? 'تكرار السورة كاملة' 
+              : repeatMode === 'all' 
+              ? (currentMode === 'page' ? 'تكرار الصفحة كاملة' : 'تكرار السورة كاملة') 
               : 'بدون تكرار'
           }
         >
           <Repeat className="w-3 h-3" />
-          <span>{repeatMode === 'ayah' ? 'الآية' : repeatMode === 'surah' ? 'السورة' : 'تكرار'}</span>
+          <span>{repeatMode === 'ayah' ? 'الآية' : repeatMode === 'all' ? (currentMode === 'page' ? 'الصفحة' : 'السورة') : 'تكرار'}</span>
         </button>
       </div>
     </div>

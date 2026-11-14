@@ -142,7 +142,9 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
   } | null>(null);
   const [popoverPos, setPopoverPos] = useState<{ x: number; y: number; placeAbove: boolean } | null>(null);
   const [showSurahPlayer, setShowSurahPlayer] = useState<boolean>(false);
+  const [audioPlayerMode, setAudioPlayerMode] = useState<'page' | 'surah'>('page');
   const [playingSurahAyah, setPlayingSurahAyah] = useState<number | null>(null);
+  const [playingAudioSurahId, setPlayingAudioSurahId] = useState<number | null>(null);
   const [showTafseerModal, setShowTafseerModal] = useState<boolean>(false);
   const [copiedAyah, setCopiedAyah] = useState<boolean>(false);
   const [isPlayingSingle, setIsPlayingSingle] = useState<boolean>(false);
@@ -613,18 +615,45 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
             <span>{fontMode === 'clear' ? 'خط النسخ' : 'خط عثمان طه'}</span>
           </button>
 
-          {/* Audio Recitation Button: تلاوة صوتية */}
+          {/* Page Audio Recitation Button: استماع للصفحة */}
           <button
-            onClick={() => setShowSurahPlayer((prev) => !prev)}
+            onClick={() => {
+              setAudioPlayerMode('page');
+              setShowSurahPlayer(true);
+              if (ayahs.length > 0) {
+                const first = ayahs[0];
+                setPlayingSurahAyah(first.numberInSurah);
+                setPlayingAudioSurahId(first.surah.number);
+              }
+            }}
             className={`px-3 py-1.5 rounded-xl border flex items-center gap-1.5 text-xs font-semibold whitespace-nowrap shrink-0 cursor-pointer transition-all shadow-xs ${
-              showSurahPlayer
+              showSurahPlayer && audioPlayerMode === 'page'
                 ? 'bg-primary text-white border-primary shadow-sm'
                 : 'bg-primary/10 border-primary/30 text-primary hover:bg-primary/20'
             }`}
-            title="تشغيل التلاوة الصوتية مع المتابعة التلقائية وتحميل الأوفلاين"
+            title="الاستماع لتلاوة الصفحة الحالية كاملة بالترتيب مع التظليل الحي"
           >
             <Headphones className="w-3.5 h-3.5" />
-            <span>تلاوة صوتية</span>
+            <span>استماع للصفحة</span>
+          </button>
+
+          {/* Surah Audio Recitation Button: تلاوة السورة */}
+          <button
+            onClick={() => {
+              setAudioPlayerMode('surah');
+              setShowSurahPlayer(true);
+              setPlayingSurahAyah(1);
+              setPlayingAudioSurahId(currentSurah.id);
+            }}
+            className={`px-2.5 py-1.5 rounded-xl border flex items-center gap-1.5 text-xs font-semibold whitespace-nowrap shrink-0 cursor-pointer transition-all shadow-xs ${
+              showSurahPlayer && audioPlayerMode === 'surah'
+                ? 'bg-accent text-white border-accent shadow-sm'
+                : 'bg-surface-elevated border-border text-text hover:border-accent/40'
+            }`}
+            title="الاستماع لتلاوة السورة كاملة"
+          >
+            <BookOpen className="w-3.5 h-3.5 text-accent" />
+            <span>تلاوة السورة</span>
           </button>
 
           {/* Studio Card Shortcut */}
@@ -765,7 +794,8 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
                     {block.ayahs.map((ayah, aIdx) => {
                       const displayText = cleanAyahText(ayah.text, ayah.numberInSurah, ayah.surah.number);
                       const words = displayText.trim().split(/\s+/).filter(Boolean);
-                      const isPlayingInSurah = playingSurahAyah === ayah.numberInSurah && currentSurah.id === block.surahNumber;
+                      const isPlayingInSurah = playingSurahAyah === ayah.numberInSurah && 
+                        (playingAudioSurahId ? playingAudioSurahId === block.surahNumber : currentSurah.id === block.surahNumber);
                       const isAyahSelected = (selectedAyah?.surahNumber === block.surahNumber && selectedAyah?.ayahNumber === ayah.numberInSurah) || isPlayingInSurah;
 
                       return (
@@ -951,6 +981,23 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
 
               <div className="w-[1px] h-3.5 bg-white/20 shrink-0" />
 
+              {/* Play Page from here */}
+              <button
+                onClick={() => {
+                  setAudioPlayerMode('page');
+                  setPlayingSurahAyah(selectedAyah.ayahNumber);
+                  setPlayingAudioSurahId(selectedAyah.surahNumber);
+                  setShowSurahPlayer(true);
+                }}
+                className="flex items-center gap-1 text-xs font-semibold text-emerald-300 hover:text-emerald-200 cursor-pointer transition-colors whitespace-nowrap"
+                title="الاستماع للصفحة كاملة بدءاً من هذه الآية"
+              >
+                <Headphones className="w-3.5 h-3.5" />
+                <span>الصفحة كاملة</span>
+              </button>
+
+              <div className="w-[1px] h-3.5 bg-white/20 shrink-0" />
+
               {/* Open التفسير الميسر */}
               <button
                 onClick={() => setShowTafseerModal(true)}
@@ -1005,33 +1052,47 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
         />
       )}
 
-      {/* Full Surah Audio Player with Offline Download & Auto-Tracking */}
+      {/* Quran Audio Player with Page & Surah modes, Offline Download & Auto-Tracking */}
       {showSurahPlayer && (
         <SurahAudioPlayerBar
+          mode={audioPlayerMode}
+          onModeChange={(m) => setAudioPlayerMode(m)}
+          pageNumber={pageNumber}
+          pageAyahs={ayahs}
           surah={currentSurah}
-          activeAyahNumber={playingSurahAyah || 1}
-          onAyahChange={(ayahNum) => {
+          activeAyahNumber={playingSurahAyah || (ayahs.length > 0 ? ayahs[0].numberInSurah : 1)}
+          activeSurahNumber={playingAudioSurahId || (ayahs.length > 0 ? ayahs[0].surah.number : currentSurah.id)}
+          onAyahChange={(ayahNum, sId) => {
             setPlayingSurahAyah(ayahNum);
-            // Check if this ayah is on current page
-            const existsOnPage = ayahs.some((a) => a.surah.number === currentSurah.id && a.numberInSurah === ayahNum);
-            if (!existsOnPage) {
-              // Try finding the page in full Quran cache
-              getFullQuran().then((fq) => {
-                for (const [pStr, pageAyahs] of Object.entries(fq)) {
-                  if (pageAyahs.some((a: any) => a.s === currentSurah.id && a.a === ayahNum)) {
-                    const p = parseInt(pStr, 10);
-                    if (p !== pageNumber) {
-                      onPageChange(p);
+            if (sId) setPlayingAudioSurahId(sId);
+
+            if (audioPlayerMode === 'surah') {
+              const targetSurahId = sId || currentSurah.id;
+              const existsOnPage = ayahs.some((a) => a.surah.number === targetSurahId && a.numberInSurah === ayahNum);
+              if (!existsOnPage) {
+                getFullQuran().then((fq) => {
+                  for (const [pStr, pageAyahsList] of Object.entries(fq)) {
+                    if (pageAyahsList.some((a: any) => a.s === targetSurahId && a.a === ayahNum)) {
+                      const p = parseInt(pStr, 10);
+                      if (p !== pageNumber) {
+                        onPageChange(p);
+                      }
+                      break;
                     }
-                    break;
                   }
-                }
-              }).catch(() => {});
+                }).catch(() => {});
+              }
+            }
+          }}
+          onPageAdvance={() => {
+            if (pageNumber < 604) {
+              onPageChange(pageNumber + 1);
             }
           }}
           onClose={() => {
             setShowSurahPlayer(false);
             setPlayingSurahAyah(null);
+            setPlayingAudioSurahId(null);
           }}
         />
       )}
