@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bookmark, ChevronRight, ChevronLeft, Loader2, RefreshCw, AlertCircle, Sparkles, Type, Headphones } from 'lucide-react';
+import { Bookmark, ChevronRight, ChevronLeft, Loader2, RefreshCw, AlertCircle, Sparkles, Type, Headphones, Volume2, BookOpen, Copy, Check, X } from 'lucide-react';
 import { QURAN_SURAHS, type SurahMeta } from '../../../data/quranSurahs';
 import { db } from '../../../db';
 import { AyahPickerModal } from './AyahPickerModal';
@@ -133,6 +133,10 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
   } | null>(null);
   const [showSurahPlayer, setShowSurahPlayer] = useState<boolean>(false);
   const [playingSurahAyah, setPlayingSurahAyah] = useState<number | null>(null);
+  const [showTafseerModal, setShowTafseerModal] = useState<boolean>(false);
+  const [copiedAyah, setCopiedAyah] = useState<boolean>(false);
+  const [isPlayingSingle, setIsPlayingSingle] = useState<boolean>(false);
+  const singleAudioRef = useRef<HTMLAudioElement | null>(null);
   const [ayahs, setAyahs] = useState<ApiAyah[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -141,6 +145,54 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
 
   // Find corresponding surah for the current page
   const currentSurah = [...QURAN_SURAHS].reverse().find((s) => s.page <= pageNumber) || QURAN_SURAHS[0];
+  // Play single ayah audio from floating pill
+  const handlePlaySingleAyah = (sId: number, aNum: number) => {
+    if (singleAudioRef.current) {
+      singleAudioRef.current.pause();
+    }
+    const reciterFolder = localStorage.getItem('maladh_quran_reciter') === 'husary'
+      ? 'Husary_128kbps'
+      : localStorage.getItem('maladh_quran_reciter') === 'minshawi'
+      ? 'Minshawy_Murattal_128kbps'
+      : localStorage.getItem('maladh_quran_reciter') === 'abdulbasit'
+      ? 'Abdul_Basit_Murattal_192kbps'
+      : 'Alafasy_128kbps';
+
+    const sStr = String(sId).padStart(3, '0');
+    const aStr = String(aNum).padStart(3, '0');
+    const audio = new Audio(`https://everyayah.com/data/${reciterFolder}/${sStr}${aStr}.mp3`);
+    singleAudioRef.current = audio;
+    setIsPlayingSingle(true);
+    setPlayingSurahAyah(aNum);
+
+    audio.play().catch(() => {
+      const fb = new Audio(`https://verses.quran.com/Alafasy/mp3/${sStr}${aStr}.mp3`);
+      singleAudioRef.current = fb;
+      fb.play().catch(() => {
+        setIsPlayingSingle(false);
+        setPlayingSurahAyah(null);
+      });
+      fb.onended = () => {
+        setIsPlayingSingle(false);
+        setPlayingSurahAyah(null);
+      };
+    });
+
+    audio.onended = () => {
+      setIsPlayingSingle(false);
+      setPlayingSurahAyah(null);
+    };
+  };
+
+  const handleCopyAyah = (text: string, surahName: string, aNum: number) => {
+    const formatted = `﴿ ${text.trim()} ﴾
+[سورة ${surahName} - الآية ${toArabicNumber(aNum)}]`;
+    navigator.clipboard.writeText(formatted).then(() => {
+      setCopiedAyah(true);
+      setTimeout(() => setCopiedAyah(false), 2000);
+    });
+  };
+
 
   // Fetch page data with Dexie caching & memory cache
   useEffect(() => {
@@ -559,26 +611,33 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
                       return (
                         <span 
                           key={`ayah_${block.surahNumber}_${ayah.numberInSurah}_${aIdx}`}
-                          onClick={() => {
-                            setSelectedAyah({
-                              surahNumber: block.surahNumber,
-                              surahName: block.surahName,
-                              ayahNumber: ayah.numberInSurah,
-                              text: displayText,
-                            });
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (selectedAyah?.surahNumber === block.surahNumber && selectedAyah?.ayahNumber === ayah.numberInSurah) {
+                              setSelectedAyah(null);
+                            } else {
+                              setSelectedAyah({
+                                surahNumber: block.surahNumber,
+                                surahName: block.surahName,
+                                ayahNumber: ayah.numberInSurah,
+                                text: displayText,
+                              });
+                            }
                           }}
-                          className={`cursor-pointer transition-all duration-200 rounded-xl px-1 py-0.5 inline-block my-0.5 ${
-                            isPlayingInSurah
-                              ? 'bg-primary/20 dark:bg-primary/30 text-primary dark:text-primary-light font-bold ring-2 ring-primary/60 scale-[1.01] shadow-xs'
-                              : isSelected
-                              ? 'bg-accent/20 dark:bg-accent/35 text-primary dark:text-accent font-semibold shadow-xs ring-1 ring-accent/50'
-                              : 'hover:bg-accent/10 dark:hover:bg-accent/20'
+                          className={`inline cursor-pointer transition-colors duration-150 select-text ${
+                            isSelected
+                              ? 'text-[#0284C7] dark:text-[#38BDF8] font-medium'
+                              : 'text-[#14120E] dark:text-[#F5F2EA] hover:text-[#0284C7]/80'
                           }`}
                           title="اضغط للاستماع للآية أو معرفة معناها وتفسيرها"
                         >
                           {displayText}
                           <span 
-                            className="inline-flex items-center justify-center mx-1.5 text-accent font-sans font-bold text-xs select-none align-middle"
+                            className={`inline-flex items-center justify-center mx-1 font-sans font-bold text-xs select-none align-middle transition-colors ${
+                              isSelected
+                                ? 'text-[#0284C7] dark:text-[#38BDF8]'
+                                : 'text-accent'
+                            }`}
                           >
                             ﴿{toArabicNumber(ayah.numberInSurah)}﴾
                           </span>{' '}
@@ -632,11 +691,65 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
         }}
       />
 
-      {/* Ayah Action Modal (Audio Recitation, Tafseer Al-Muyassar, Word-by-Word) */}
-      {selectedAyah && (
+      
+      {/* Mini Floating Action Pill Menu (matching user image 2) */}
+      {selectedAyah && !showTafseerModal && (
+        <div 
+          className="fixed bottom-24 sm:bottom-28 left-1/2 -translate-x-1/2 z-40 bg-[#181D24]/95 dark:bg-[#10141A]/95 backdrop-blur-md text-white rounded-full px-4 py-2 shadow-2xl flex items-center gap-3.5 border border-white/10 animate-slide-up"
+          dir="rtl"
+        >
+          {/* Play Ayah Audio */}
+          <button
+            onClick={() => handlePlaySingleAyah(selectedAyah.surahNumber, selectedAyah.ayahNumber)}
+            className="flex items-center gap-1.5 text-xs font-semibold hover:text-sky-400 cursor-pointer transition-colors"
+            title="الاستماع لتلاوة الآية"
+          >
+            <Volume2 className={`w-3.5 h-3.5 ${isPlayingSingle ? 'text-sky-400 animate-pulse' : 'text-sky-400'}`} />
+            <span>{isPlayingSingle ? 'جارٍ التشغيل' : 'استماع'}</span>
+          </button>
+
+          <div className="w-[1px] h-3.5 bg-white/20" />
+
+          {/* Open Tafseer */}
+          <button
+            onClick={() => setShowTafseerModal(true)}
+            className="flex items-center gap-1.5 text-xs font-semibold hover:text-amber-400 cursor-pointer transition-colors"
+            title="التفسير ومعاني الكلمات"
+          >
+            <BookOpen className="w-3.5 h-3.5 text-amber-400" />
+            <span>تفسير</span>
+          </button>
+
+          <div className="w-[1px] h-3.5 bg-white/20" />
+
+          {/* Copy */}
+          <button
+            onClick={() => handleCopyAyah(selectedAyah.text, selectedAyah.surahName, selectedAyah.ayahNumber)}
+            className="flex items-center gap-1 text-xs font-semibold hover:text-emerald-400 cursor-pointer transition-colors"
+            title="نسخ نص الآية"
+          >
+            {copiedAyah ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+            <span>{copiedAyah ? 'تم' : 'نسخ'}</span>
+          </button>
+
+          <div className="w-[1px] h-3.5 bg-white/20" />
+
+          {/* Dismiss */}
+          <button
+            onClick={() => setSelectedAyah(null)}
+            className="text-white/60 hover:text-white cursor-pointer transition-colors"
+            title="إلغاء التحديد"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* Full Tafseer & Word Meanings Modal */}
+      {selectedAyah && showTafseerModal && (
         <AyahActionModal
-          isOpen={!!selectedAyah}
-          onClose={() => setSelectedAyah(null)}
+          isOpen={showTafseerModal}
+          onClose={() => setShowTafseerModal(false)}
           surahNumber={selectedAyah.surahNumber}
           surahName={selectedAyah.surahName}
           ayahNumber={selectedAyah.ayahNumber}
