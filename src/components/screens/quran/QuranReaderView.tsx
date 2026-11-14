@@ -46,6 +46,7 @@ if (typeof window !== 'undefined' && !localStorage.getItem(STORAGE_PURGE_KEY)) {
 
 let fullQuranCache: Record<number, any[]> | null = null;
 let fullQuranPromise: Promise<Record<number, any[]>> | null = null;
+let ayahPageLookup: Map<string, number> | null = null;
 
 async function getFullQuran(): Promise<Record<number, any[]>> {
   if (fullQuranCache) return fullQuranCache;
@@ -58,6 +59,19 @@ async function getFullQuran(): Promise<Record<number, any[]>> {
       })
       .then((data) => {
         fullQuranCache = data;
+        const lookup = new Map<string, number>();
+        for (const [pStr, pageAyahsList] of Object.entries(data)) {
+          const p = parseInt(pStr, 10);
+          if (Array.isArray(pageAyahsList)) {
+            for (const a of pageAyahsList) {
+              const k = `${a.s}_${a.a}`;
+              if (!lookup.has(k)) {
+                lookup.set(k, p);
+              }
+            }
+          }
+        }
+        ayahPageLookup = lookup;
         return data;
       })
       .catch((err) => {
@@ -143,6 +157,7 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
   const [popoverPos, setPopoverPos] = useState<{ x: number; y: number; placeAbove: boolean } | null>(null);
   const [showSurahPlayer, setShowSurahPlayer] = useState<boolean>(false);
   const [audioPlayerMode, setAudioPlayerMode] = useState<'page' | 'surah'>('page');
+  const [playerSessionKey, setPlayerSessionKey] = useState<number>(1);
   const [playingSurahAyah, setPlayingSurahAyah] = useState<number | null>(null);
   const [playingAudioSurahId, setPlayingAudioSurahId] = useState<number | null>(null);
   const [showTafseerModal, setShowTafseerModal] = useState<boolean>(false);
@@ -605,6 +620,7 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
                   setPlayingSurahAyah(first.numberInSurah);
                   setPlayingAudioSurahId(first.surah.number);
                 }
+                setPlayerSessionKey(Date.now());
               }}
               className={`px-2.5 sm:px-3 py-1.5 rounded-xl border flex items-center gap-1.5 text-xs font-semibold whitespace-nowrap cursor-pointer transition-all shadow-xs ${
                 showSurahPlayer && audioPlayerMode === 'page'
@@ -677,19 +693,23 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
             <button
               onClick={() => {
                 setAudioPlayerMode('surah');
-                setShowSurahPlayer(true);
                 setSelectedAyah(null);
                 setSelectedWord(null);
                 setPopoverPos(null);
                 setPlayingSurahAyah(1);
                 setPlayingAudioSurahId(currentSurah.id);
+                if (pageNumber !== currentSurah.page) {
+                  onPageChange(currentSurah.page);
+                }
+                setPlayerSessionKey(Date.now());
+                setShowSurahPlayer(true);
               }}
               className={`px-2 py-1 rounded-xl border flex items-center gap-1 text-xs font-semibold whitespace-nowrap cursor-pointer transition-all shadow-xs ${
                 showSurahPlayer && audioPlayerMode === 'surah'
                   ? 'bg-accent text-white border-accent shadow-sm'
                   : 'bg-surface-elevated border-border text-text hover:border-accent/40'
               }`}
-              title="الاستماع لتلاوة السورة كاملة"
+              title="الاستماع لتلاوة السورة كاملة من بدايتها بالتتبع الحي"
             >
               <BookOpen className="w-3.5 h-3.5 text-accent" />
               <span>تلاوة السورة</span>
@@ -1080,6 +1100,8 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
       {/* Quran Audio Player with Page & Surah modes, Offline Download & Auto-Tracking */}
       {showSurahPlayer && (
         <SurahAudioPlayerBar
+          key={`player_${playerSessionKey}`}
+          autoPlay={true}
           mode={audioPlayerMode}
           onModeChange={(m) => setAudioPlayerMode(m)}
           pageNumber={pageNumber}
@@ -1091,22 +1113,43 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
             setPlayingSurahAyah(ayahNum);
             if (sId) setPlayingAudioSurahId(sId);
 
-            if (audioPlayerMode === 'surah') {
-              const targetSurahId = sId || currentSurah.id;
-              const existsOnPage = ayahs.some((a) => a.surah.number === targetSurahId && a.numberInSurah === ayahNum);
-              if (!existsOnPage) {
-                getFullQuran().then((fq) => {
-                  for (const [pStr, pageAyahsList] of Object.entries(fq)) {
-                    if (pageAyahsList.some((a: any) => a.s === targetSurahId && a.a === ayahNum)) {
-                      const p = parseInt(pStr, 10);
-                      if (p !== pageNumber) {
-                        onPageChange(p);
-                      }
-                      break;
-                    }
-                  }
-                }).catch(() => {});
+            const targetSurahId = sId || playingAudioSurahId || currentSurah.id;
+            const targetSurahMeta = QURAN_SURAHS.find((s) => s.id === targetSurahId);
+
+            // Fast path for Ayah 1: immediately jump to the Surah start page
+            if (ayahNum === 1 && targetSurahMeta && targetSurahMeta.page !== pageNumber) {
+              onPageChange(targetSurahMeta.page);
+              return;
+            }
+
+            // Check if this ayah is on the current page
+            const existsOnPage = ayahs.some((a) => a.surah.number === targetSurahId && a.numberInSurah === ayahNum);
+            if (!existsOnPage) {
+              if (ayahPageLookup) {
+                const targetPage = ayahPageLookup.get(`${targetSurahId}_${ayahNum}`);
+                if (targetPage && targetPage !== pageNumber) {
+                  onPageChange(targetPage);
+                  return;
+                }
               }
+              getFullQuran().then((fq) => {
+                if (ayahPageLookup) {
+                  const targetPage = ayahPageLookup.get(`${targetSurahId}_${ayahNum}`);
+                  if (targetPage && targetPage !== pageNumber) {
+                    onPageChange(targetPage);
+                    return;
+                  }
+                }
+                for (const [pStr, pageAyahsList] of Object.entries(fq)) {
+                  if (pageAyahsList.some((a: any) => a.s === targetSurahId && a.a === ayahNum)) {
+                    const p = parseInt(pStr, 10);
+                    if (p !== pageNumber) {
+                      onPageChange(p);
+                    }
+                    break;
+                  }
+                }
+              }).catch(() => {});
             }
           }}
           onPageAdvance={() => {

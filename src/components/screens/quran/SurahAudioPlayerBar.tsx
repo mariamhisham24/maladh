@@ -42,6 +42,7 @@ export interface SurahAudioPlayerBarProps {
   onAyahChange: (ayahNumber: number, surahNumber?: number) => void;
   onPageAdvance?: () => void;
   onClose: () => void;
+  autoPlay?: boolean;
 }
 
 export const QURAN_RECITERS = [
@@ -72,6 +73,7 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
   onAyahChange,
   onPageAdvance,
   onClose,
+  autoPlay = false,
 }) => {
   const [currentMode, setCurrentMode] = useState<'page' | 'surah'>(mode);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -316,10 +318,39 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
     if (audioRef.current) {
       audioRef.current.pause();
     }
-    setIsPlaying(false);
     setCurrentMode(targetMode);
     onModeChange?.(targetMode);
+
+    if (targetMode === 'surah') {
+      setCurrentSurahAyah(1);
+      onAyahChange(1, surah.id);
+      playAyahAudio(surah.id, 1);
+    } else {
+      setPageAyahIndex(0);
+      const first = pageAyahs[0];
+      if (first) {
+        onAyahChange(first.numberInSurah, first.surah.number);
+        playAyahAudio(first.surah.number, first.numberInSurah);
+      }
+    }
   };
+
+  // Auto-play on mount if autoPlay is requested
+  useEffect(() => {
+    if (autoPlay) {
+      if (mode === 'surah') {
+        const startAyah = activeAyahNumber || 1;
+        onAyahChange(startAyah, surah.id);
+        playAyahAudio(surah.id, startAyah);
+      } else {
+        const currentAyah = (pageAyahs && pageAyahs.length > 0) ? (pageAyahs[pageAyahIndex] || pageAyahs[0]) : null;
+        if (currentAyah) {
+          onAyahChange(currentAyah.numberInSurah, currentAyah.surah.number);
+          playAyahAudio(currentAyah.surah.number, currentAyah.numberInSurah);
+        }
+      }
+    }
+  }, []);
 
   // Clean up audio on unmount
   useEffect(() => {
