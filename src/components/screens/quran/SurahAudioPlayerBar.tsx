@@ -176,7 +176,6 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
     };
 
     audio.onerror = () => {
-      // Fallback url
       const sStr = String(sId).padStart(3, '0');
       const aStr = String(aNum).padStart(3, '0');
       const fallbackUrl = `https://verses.quran.com/Alafasy/mp3/${sStr}${aStr}.mp3`;
@@ -204,7 +203,6 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
     }
 
     if (currentMode === 'page') {
-      // PAGE MODE SEQUENCING
       if (pageAyahIndex < pageAyahs.length - 1) {
         const nextIdx = pageAyahIndex + 1;
         setPageAyahIndex(nextIdx);
@@ -212,22 +210,18 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
         onAyahChange(nextAyah.numberInSurah, nextAyah.surah.number);
         playAyahAudio(nextAyah.surah.number, nextAyah.numberInSurah);
       } else {
-        // Reached end of page!
         if (repeatMode === 'all') {
-          // Loop current page
           setPageAyahIndex(0);
           const first = pageAyahs[0];
           onAyahChange(first.numberInSurah, first.surah.number);
           playAyahAudio(first.surah.number, first.numberInSurah);
         } else if (autoAdvancePage && onPageAdvance) {
-          // Advance to next page automatically!
           onPageAdvance();
         } else {
           setIsPlaying(false);
         }
       }
     } else {
-      // SURAH MODE SEQUENCING
       if (currentSurahAyah < surah.ayahCount) {
         const nextAyah = currentSurahAyah + 1;
         setCurrentSurahAyah(nextAyah);
@@ -394,16 +388,16 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
 
   return (
     <div 
-      className="fixed bottom-3 sm:bottom-6 left-3 right-3 sm:left-auto sm:right-6 sm:w-[500px] z-40 bg-surface/95 dark:bg-surface-elevated/95 backdrop-blur-md border-2 border-primary/30 rounded-2xl p-3 sm:p-3.5 shadow-2xl animate-slide-up"
+      className="fixed bottom-[74px] sm:bottom-6 left-2 right-2 sm:left-auto sm:right-6 sm:w-[460px] z-30 bg-surface/98 dark:bg-[#131920]/98 backdrop-blur-md border border-primary/30 rounded-2xl p-2.5 sm:p-3 shadow-2xl animate-slide-up"
       dir="rtl"
     >
-      {/* Top Header: Mode Switcher & Title */}
-      <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-2 mb-2">
+      {/* Top Row: Mode Tabs + Reciter + Offline Download + Close */}
+      <div className="flex items-center justify-between gap-1.5 pb-2 mb-2 border-b border-border/60">
         {/* Mode Switcher Tabs */}
         <div className="flex items-center gap-1 bg-surface-elevated dark:bg-surface border border-border/70 p-0.5 rounded-xl">
           <button
             onClick={() => handleSwitchMode('page')}
-            className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer ${
+            className={`px-2 py-0.5 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer ${
               currentMode === 'page'
                 ? 'bg-primary text-white shadow-xs'
                 : 'text-text-muted hover:text-text'
@@ -414,7 +408,7 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
           </button>
           <button
             onClick={() => handleSwitchMode('surah')}
-            className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer ${
+            className={`px-2 py-0.5 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer ${
               currentMode === 'surah'
                 ? 'bg-primary text-white shadow-xs'
                 : 'text-text-muted hover:text-text'
@@ -425,101 +419,6 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
           </button>
         </div>
 
-        {/* Right side controls: Offline Download & Close */}
-        <div className="flex items-center gap-1.5">
-          {/* Download for offline button */}
-          <button
-            onClick={handleDownloadOffline}
-            disabled={isDownloading}
-            className={`px-2 py-1 rounded-xl text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer ${
-              isDownloaded
-                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
-                : isDownloading
-                ? 'bg-primary/10 text-primary border border-primary/30'
-                : 'bg-surface border border-border text-text hover:border-primary/50'
-            }`}
-            title={isDownloaded ? 'المقطع الصوتي محفوظ أوفلاين' : 'تحميل المقطع للاستماع بدون إنترنت'}
-          >
-            {isDownloading ? (
-              <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
-                <span>{downloadProgress}%</span>
-              </>
-            ) : isDownloaded ? (
-              <>
-                <Check className="w-3.5 h-3.5" />
-                <span>أوفلاين ✓</span>
-              </>
-            ) : (
-              <>
-                <Download className="w-3.5 h-3.5" />
-                <span className="hidden xs:inline">تحميل أوفلاين</span>
-              </>
-            )}
-          </button>
-
-          {/* Close button */}
-          <button
-            onClick={() => {
-              if (audioRef.current) {
-                audioRef.current.pause();
-              }
-              setIsPlaying(false);
-              onClose();
-            }}
-            className="w-7 h-7 rounded-full bg-surface border border-border text-text-muted hover:text-text flex items-center justify-center cursor-pointer transition-colors"
-            title="إغلاق المشغل"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </div>
-
-      {/* Track Info Banner */}
-      <div className="flex items-center gap-2 mb-2.5 px-0.5">
-        <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-          <Volume2 className={`w-4 h-4 ${isPlaying ? 'animate-pulse text-emerald-600 dark:text-emerald-400' : ''}`} />
-        </div>
-        <div className="min-w-0 flex-1">
-          {currentMode === 'page' && currentDisplayAyah ? (
-            <>
-              <h4 className="font-alexandria font-bold text-xs sm:text-sm text-text truncate">
-                صفحة {toArabicNumber(pageNumber)} · سورة {currentDisplayAyah.surah.name} • آية {toArabicNumber(currentDisplayAyah.numberInSurah)}
-              </h4>
-              <span className="text-[10px] text-text-muted">
-                الآية {toArabicNumber(pageAyahIndex + 1)} من {toArabicNumber(pageAyahs.length)} بالصفحة
-              </span>
-            </>
-          ) : (
-            <>
-              <h4 className="font-alexandria font-bold text-xs sm:text-sm text-text truncate">
-                سورة {surah.name} • الآية {toArabicNumber(currentSurahAyah)}
-              </h4>
-              <span className="text-[10px] text-text-muted">
-                من {toArabicNumber(surah.ayahCount)} آية
-              </span>
-            </>
-          )}
-        </div>
-
-        {/* Auto Page Advance indicator in page mode */}
-        {currentMode === 'page' && onPageAdvance && (
-          <button
-            onClick={() => setAutoAdvancePage((prev) => !prev)}
-            className={`text-[10px] px-2 py-1 rounded-lg border font-sans transition-all cursor-pointer ${
-              autoAdvancePage
-                ? 'bg-primary/10 border-primary/30 text-primary font-semibold'
-                : 'bg-surface border-border text-text-muted'
-            }`}
-            title="الانتقال التلقائي للصفحة التالية عند انتهاء تلاوة الصفحة"
-          >
-            <span>التالي تلقائياً: {autoAdvancePage ? 'مفعل' : 'معطل'}</span>
-          </button>
-        )}
-      </div>
-
-      {/* Main Playback Bar Controls */}
-      <div className="flex items-center justify-between gap-2">
         {/* Reciter Selector */}
         <div className="relative">
           <select
@@ -537,7 +436,7 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
                 }
               }
             }}
-            className="appearance-none bg-surface border border-border rounded-xl px-2 py-1.5 pr-2 pl-6 text-[11px] font-sans text-text cursor-pointer focus:outline-none focus:border-primary"
+            className="appearance-none bg-surface border border-border rounded-xl px-2 py-1 pr-1.5 pl-5 text-[11px] font-sans text-text cursor-pointer focus:outline-none focus:border-primary max-w-[120px] truncate"
           >
             {QURAN_RECITERS.map((r) => (
               <option key={r.id} value={r.id}>
@@ -545,70 +444,142 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
               </option>
             ))}
           </select>
-          <ChevronDown className="w-3 h-3 text-text-muted absolute left-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <ChevronDown className="w-3 h-3 text-text-muted absolute left-1 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
 
-        {/* Playback Buttons: Prev, Play/Pause, Next */}
-        <div className="flex items-center gap-1.5">
-          {/* Previous Ayah */}
+        {/* Right buttons: Download + Close */}
+        <div className="flex items-center gap-1">
           <button
-            onClick={handlePrevAyah}
-            disabled={currentMode === 'page' ? pageAyahIndex <= 0 : currentSurahAyah <= 1}
-            className="w-8 h-8 rounded-xl bg-surface border border-border text-text disabled:opacity-30 disabled:pointer-events-none hover:border-primary/50 flex items-center justify-center cursor-pointer transition-all"
-            title="الآية السابقة"
+            onClick={handleDownloadOffline}
+            disabled={isDownloading}
+            className={`p-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer ${
+              isDownloaded
+                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                : isDownloading
+                ? 'bg-primary/10 text-primary border border-primary/30'
+                : 'bg-surface border border-border text-text hover:border-primary/50'
+            }`}
+            title={isDownloaded ? 'المقطع محفوظ أوفلاين' : 'تحميل أوفلاين'}
           >
-            <SkipBack className="w-4 h-4" />
-          </button>
-
-          {/* Play / Pause Toggle */}
-          <button
-            onClick={handleTogglePlay}
-            disabled={isLoading}
-            className="w-10 h-10 rounded-xl bg-primary text-white hover:bg-primary/95 flex items-center justify-center cursor-pointer shadow-md active:scale-95 transition-all"
-            title={isPlaying ? 'إيقاف مؤقت' : 'بدء التلاوة'}
-          >
-            {isLoading ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : isPlaying ? (
-              <Pause className="w-5 h-5 fill-white" />
+            {isDownloading ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                <span className="text-[10px]">{downloadProgress}%</span>
+              </>
+            ) : isDownloaded ? (
+              <Check className="w-3.5 h-3.5 text-emerald-500" />
             ) : (
-              <Play className="w-5 h-5 fill-white" />
+              <Download className="w-3.5 h-3.5" />
             )}
           </button>
 
-          {/* Next Ayah */}
+          <button
+            onClick={() => {
+              if (audioRef.current) audioRef.current.pause();
+              setIsPlaying(false);
+              onClose();
+            }}
+            className="w-6 h-6 rounded-full bg-surface border border-border text-text-muted hover:text-text flex items-center justify-center cursor-pointer transition-colors"
+            title="إغلاق المشغل"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Row 2: Track Title & Playback Controls */}
+      <div className="flex items-center justify-between gap-2">
+        {/* Track Title with Volume2 Indicator */}
+        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+          <Volume2 className={`w-3.5 h-3.5 shrink-0 ${isPlaying ? 'text-emerald-500 animate-pulse' : 'text-text-muted'}`} />
+          <div className="min-w-0">
+            {currentMode === 'page' && currentDisplayAyah ? (
+              <div>
+                <h4 className="font-alexandria font-bold text-xs text-text truncate">
+                  سورة {currentDisplayAyah.surah.name} • آية {toArabicNumber(currentDisplayAyah.numberInSurah)}
+                </h4>
+                <span className="text-[10px] text-text-muted">
+                  الآية {toArabicNumber(pageAyahIndex + 1)} من {toArabicNumber(pageAyahs.length)} بالصفحة
+                </span>
+              </div>
+            ) : (
+              <div>
+                <h4 className="font-alexandria font-bold text-xs text-text truncate">
+                  سورة {surah.name} • آية {toArabicNumber(currentSurahAyah)}
+                </h4>
+                <span className="text-[10px] text-text-muted">
+                  من {toArabicNumber(surah.ayahCount)} آية
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Playback Controls */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            onClick={handlePrevAyah}
+            disabled={currentMode === 'page' ? pageAyahIndex <= 0 : currentSurahAyah <= 1}
+            className="w-7 h-7 rounded-lg bg-surface border border-border text-text disabled:opacity-30 disabled:pointer-events-none hover:border-primary/50 flex items-center justify-center cursor-pointer transition-all"
+            title="الآية السابقة"
+          >
+            <SkipBack className="w-3.5 h-3.5" />
+          </button>
+
+          <button
+            onClick={handleTogglePlay}
+            disabled={isLoading}
+            className="w-9 h-9 rounded-xl bg-primary text-white hover:bg-primary/95 flex items-center justify-center cursor-pointer shadow-md active:scale-95 transition-all"
+            title={isPlaying ? 'إيقاف مؤقت' : 'بدء التلاوة'}
+          >
+            {isLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : isPlaying ? (
+              <Pause className="w-4 h-4 fill-white" />
+            ) : (
+              <Play className="w-4 h-4 fill-white" />
+            )}
+          </button>
+
           <button
             onClick={handleNextAyah}
             disabled={currentMode === 'page' ? (pageAyahIndex >= pageAyahs.length - 1 && !onPageAdvance) : currentSurahAyah >= surah.ayahCount}
-            className="w-8 h-8 rounded-xl bg-surface border border-border text-text disabled:opacity-30 disabled:pointer-events-none hover:border-primary/50 flex items-center justify-center cursor-pointer transition-all"
+            className="w-7 h-7 rounded-lg bg-surface border border-border text-text disabled:opacity-30 disabled:pointer-events-none hover:border-primary/50 flex items-center justify-center cursor-pointer transition-all"
             title="الآية التالية"
           >
-            <SkipForward className="w-4 h-4" />
+            <SkipForward className="w-3.5 h-3.5" />
           </button>
-        </div>
 
-        {/* Repeat Mode Toggle */}
-        <button
-          onClick={() => {
-            const next = repeatMode === 'none' ? 'ayah' : repeatMode === 'ayah' ? 'all' : 'none';
-            setRepeatMode(next);
-          }}
-          className={`px-2 py-1 rounded-xl text-[10px] font-semibold flex items-center gap-1 border transition-all cursor-pointer ${
-            repeatMode !== 'none'
-              ? 'bg-accent/15 border-accent text-accent'
-              : 'bg-surface border-border text-text-muted hover:text-text'
-          }`}
-          title={
-            repeatMode === 'ayah' 
-              ? 'تكرار الآية الحالية' 
-              : repeatMode === 'all' 
-              ? (currentMode === 'page' ? 'تكرار الصفحة كاملة' : 'تكرار السورة كاملة') 
-              : 'بدون تكرار'
-          }
-        >
-          <Repeat className="w-3 h-3" />
-          <span>{repeatMode === 'ayah' ? 'الآية' : repeatMode === 'all' ? (currentMode === 'page' ? 'الصفحة' : 'السورة') : 'تكرار'}</span>
-        </button>
+          <button
+            onClick={() => {
+              const next = repeatMode === 'none' ? 'ayah' : repeatMode === 'ayah' ? 'all' : 'none';
+              setRepeatMode(next);
+            }}
+            className={`px-1.5 py-1 rounded-lg text-[10px] font-semibold flex items-center gap-0.5 border transition-all cursor-pointer ${
+              repeatMode !== 'none'
+                ? 'bg-accent/15 border-accent text-accent'
+                : 'bg-surface border-border text-text-muted hover:text-text'
+            }`}
+            title="تكرار"
+          >
+            <Repeat className="w-2.5 h-2.5" />
+            <span>{repeatMode === 'ayah' ? 'آية' : repeatMode === 'all' ? (currentMode === 'page' ? 'صفحة' : 'سورة') : 'تكرار'}</span>
+          </button>
+
+          {currentMode === 'page' && onPageAdvance && (
+            <button
+              onClick={() => setAutoAdvancePage((prev) => !prev)}
+              className={`px-1.5 py-1 rounded-lg text-[10px] font-semibold border transition-all cursor-pointer ${
+                autoAdvancePage
+                  ? 'bg-primary/10 border-primary/30 text-primary'
+                  : 'bg-surface border-border text-text-muted'
+              }`}
+              title="الانتقال التلقائي للصفحة التالية"
+            >
+              <span>{autoAdvancePage ? 'مستمر' : 'صفحة'}</span>
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

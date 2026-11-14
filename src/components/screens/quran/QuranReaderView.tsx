@@ -571,124 +571,142 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
           setPopoverPos(null);
         }
       }}
-      className="space-y-4 animate-fade-in text-right select-text"
+      className="space-y-4 animate-fade-in text-right select-text pb-32 sm:pb-16"
     >
       {/* Reader Controls Top Bar */}
-      <div className="bg-surface rounded-2xl p-2.5 sm:p-3 border border-border flex flex-col md:flex-row md:items-center justify-between gap-2.5 text-xs shadow-xs">
-        {/* Actions Group with Smooth Scrolling */}
-        <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-0.5">
-          {/* Bookmark Button */}
-          <button
-            onClick={() => onToggleBookmark(pageNumber, currentSurah)}
-            className={`px-3 py-1.5 rounded-xl border flex items-center gap-1.5 text-xs font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
-              isBookmarked
-                ? 'bg-accent text-white border-accent shadow-xs'
-                : 'bg-surface-elevated border-border text-text hover:border-accent/40'
-            }`}
-            title={isBookmarked ? 'إزالة الفاصلة' : 'حفظ فاصلة هنا'}
-          >
-            <Bookmark className={`w-3.5 h-3.5 ${isBookmarked ? 'fill-white' : ''}`} />
-            <span>{isBookmarked ? 'فاصلة ✓' : 'حفظ فاصلة'}</span>
-          </button>
-
-          {/* Font scaler */}
-          <div className="flex items-center gap-1 bg-surface-elevated border border-border px-2 py-1 rounded-xl shrink-0">
+      <div className="bg-surface rounded-2xl p-2.5 sm:p-3 border border-border flex flex-col gap-2 shadow-xs">
+        {/* Row 1: Surah & Page badge + Primary Page Audio Recitation Button + Bookmark */}
+        <div className="flex items-center justify-between gap-1.5 sm:gap-2">
+          {/* Surah & Page Pill */}
+          <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
+            <span className="font-alexandria font-bold text-xs text-text bg-surface-elevated px-2.5 py-1 rounded-xl border border-border truncate">
+              سورة {currentSurah.name}
+            </span>
             <button
-              onClick={() => setFontSizeScale((prev) => Math.max(18, prev - 2))}
-              className="text-xs text-primary font-bold hover:opacity-75 cursor-pointer px-1"
-              title="تصغير الخط"
+              onClick={() => setShowJump(!showJump)}
+              className="text-primary hover:underline font-mono text-xs font-semibold cursor-pointer px-1.5 py-1 rounded-lg hover:bg-primary/5 transition-colors whitespace-nowrap"
             >
-              −
-            </button>
-            <span className="text-[11px] text-text-muted font-mono px-0.5">{fontSizeScale}</span>
-            <button
-              onClick={() => setFontSizeScale((prev) => Math.min(36, prev + 2))}
-              className="text-xs text-primary font-bold hover:opacity-75 cursor-pointer px-1"
-              title="تكبير الخط"
-            >
-              ＋
+              ص {toArabicNumber(pageNumber)} من ٦٠٤ ▾
             </button>
           </div>
 
-          {/* Font Mode Switcher: خط عثمان طه vs خط النسخ */}
-          <button
-            onClick={() => {
-              const next = fontMode === 'uthmani' ? 'clear' : 'uthmani';
-              setFontMode(next);
-              localStorage.setItem('maladh_quran_font_mode', next);
-            }}
-            className="px-2.5 py-1.5 rounded-xl bg-surface-elevated border border-border text-xs text-primary font-semibold hover:border-primary/40 cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-all shadow-xs"
-            title="تبديل نوع الخط القرآني"
-          >
-            <Type className="w-3.5 h-3.5 text-accent" />
-            <span>{fontMode === 'clear' ? 'خط النسخ' : 'خط عثمان طه'}</span>
-          </button>
-
-          {/* Page Audio Recitation Button: استماع للصفحة */}
-          <button
-            onClick={() => {
-              setAudioPlayerMode('page');
-              setShowSurahPlayer(true);
-              if (ayahs.length > 0) {
-                const first = ayahs[0];
-                setPlayingSurahAyah(first.numberInSurah);
-                setPlayingAudioSurahId(first.surah.number);
-              }
-            }}
-            className={`px-3 py-1.5 rounded-xl border flex items-center gap-1.5 text-xs font-semibold whitespace-nowrap shrink-0 cursor-pointer transition-all shadow-xs ${
-              showSurahPlayer && audioPlayerMode === 'page'
-                ? 'bg-primary text-white border-primary shadow-sm'
-                : 'bg-primary/10 border-primary/30 text-primary hover:bg-primary/20'
-            }`}
-            title="الاستماع لتلاوة الصفحة الحالية كاملة بالترتيب مع التظليل الحي"
-          >
-            <Headphones className="w-3.5 h-3.5" />
-            <span>استماع للصفحة</span>
-          </button>
-
-          {/* Surah Audio Recitation Button: تلاوة السورة */}
-          <button
-            onClick={() => {
-              setAudioPlayerMode('surah');
-              setShowSurahPlayer(true);
-              setPlayingSurahAyah(1);
-              setPlayingAudioSurahId(currentSurah.id);
-            }}
-            className={`px-2.5 py-1.5 rounded-xl border flex items-center gap-1.5 text-xs font-semibold whitespace-nowrap shrink-0 cursor-pointer transition-all shadow-xs ${
-              showSurahPlayer && audioPlayerMode === 'surah'
-                ? 'bg-accent text-white border-accent shadow-sm'
-                : 'bg-surface-elevated border-border text-text hover:border-accent/40'
-            }`}
-            title="الاستماع لتلاوة السورة كاملة"
-          >
-            <BookOpen className="w-3.5 h-3.5 text-accent" />
-            <span>تلاوة السورة</span>
-          </button>
-
-          {/* Studio Card Shortcut */}
-          {onOpenInStudio && ayahs.length > 0 && (
+          {/* Action Buttons: Listen to Page & Bookmark */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Page Audio Recitation Button: استماع للصفحة */}
             <button
-              onClick={() => setShowAyahPicker(true)}
-              className="px-2.5 py-1.5 rounded-xl bg-accent-light/70 border border-accent/30 text-accent font-semibold text-xs hover:bg-accent hover:text-white whitespace-nowrap shrink-0 transition-all cursor-pointer flex items-center gap-1 shadow-xs"
-              title="تصميم بطاقة في الاستوديو"
+              onClick={() => {
+                setAudioPlayerMode('page');
+                setShowSurahPlayer(true);
+                setSelectedAyah(null);
+                setSelectedWord(null);
+                setPopoverPos(null);
+                if (ayahs.length > 0) {
+                  const first = ayahs[0];
+                  setPlayingSurahAyah(first.numberInSurah);
+                  setPlayingAudioSurahId(first.surah.number);
+                }
+              }}
+              className={`px-2.5 sm:px-3 py-1.5 rounded-xl border flex items-center gap-1.5 text-xs font-semibold whitespace-nowrap cursor-pointer transition-all shadow-xs ${
+                showSurahPlayer && audioPlayerMode === 'page'
+                  ? 'bg-primary text-white border-primary shadow-sm'
+                  : 'bg-primary/10 border-primary/30 text-primary hover:bg-primary/20'
+              }`}
+              title="الاستماع لتلاوة الصفحة الحالية كاملة بالترتيب مع التظليل الحي"
             >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>بطاقة</span>
+              <Headphones className="w-3.5 h-3.5" />
+              <span>استماع للصفحة</span>
             </button>
-          )}
+
+            {/* Bookmark Button */}
+            <button
+              onClick={() => onToggleBookmark(pageNumber, currentSurah)}
+              className={`px-2 py-1.5 rounded-xl border flex items-center gap-1 text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                isBookmarked
+                  ? 'bg-accent text-white border-accent shadow-xs'
+                  : 'bg-surface-elevated border-border text-text hover:border-accent/40'
+              }`}
+              title={isBookmarked ? 'إزالة الفاصلة' : 'حفظ فاصلة هنا'}
+            >
+              <Bookmark className={`w-3.5 h-3.5 ${isBookmarked ? 'fill-white' : ''}`} />
+              <span className="hidden xs:inline">{isBookmarked ? 'فاصلة ✓' : 'فاصلة'}</span>
+            </button>
+          </div>
         </div>
 
-        {/* Surah info and jump trigger */}
-        <div className="flex items-center justify-between md:justify-end gap-2 shrink-0 border-t md:border-t-0 border-border/60 pt-2 md:pt-0">
-          <button
-            onClick={() => setShowJump(!showJump)}
-            className="text-primary hover:underline font-mono text-xs font-semibold cursor-pointer px-2 py-1 rounded-lg hover:bg-primary/5 transition-colors whitespace-nowrap"
-          >
-            صفحة {toArabicNumber(pageNumber)} من ٦٠٤ ▾
-          </button>
-          <span className="font-alexandria font-bold text-xs text-text bg-surface-elevated px-2.5 py-1 rounded-xl border border-border whitespace-nowrap">
-            سورة {currentSurah.name}
-          </span>
+        {/* Row 2: Secondary Controls (Font switcher, Font scaler, Surah recitation, Studio card) */}
+        <div className="flex items-center justify-between gap-1.5 border-t border-border/60 pt-2 overflow-x-auto no-scrollbar">
+          {/* Typography Group: Font Mode + Size */}
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+            {/* Font Mode Switcher: خط عثمان طه vs خط النسخ */}
+            <button
+              onClick={() => {
+                const next = fontMode === 'uthmani' ? 'clear' : 'uthmani';
+                setFontMode(next);
+                localStorage.setItem('maladh_quran_font_mode', next);
+              }}
+              className="px-2 py-1 rounded-xl bg-surface-elevated border border-border text-xs text-primary font-semibold hover:border-primary/40 cursor-pointer flex items-center gap-1 whitespace-nowrap transition-all shadow-xs"
+              title="تبديل نوع الخط القرآني"
+            >
+              <Type className="w-3.5 h-3.5 text-accent" />
+              <span>{fontMode === 'clear' ? 'النسخ' : 'عثمان طه'}</span>
+            </button>
+
+            {/* Font Scaler */}
+            <div className="flex items-center gap-0.5 bg-surface-elevated border border-border px-1.5 py-0.5 rounded-xl">
+              <button
+                onClick={() => setFontSizeScale((prev) => Math.max(18, prev - 2))}
+                className="text-xs text-primary font-bold hover:opacity-75 cursor-pointer px-1"
+                title="تصغير الخط"
+              >
+                −
+              </button>
+              <span className="text-[11px] text-text-muted font-mono px-0.5">{fontSizeScale}</span>
+              <button
+                onClick={() => setFontSizeScale((prev) => Math.min(36, prev + 2))}
+                className="text-xs text-primary font-bold hover:opacity-75 cursor-pointer px-1"
+                title="تكبير الخط"
+              >
+                ＋
+              </button>
+            </div>
+          </div>
+
+          {/* Secondary Actions: Surah Audio + Studio Card */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Surah Audio Recitation Button */}
+            <button
+              onClick={() => {
+                setAudioPlayerMode('surah');
+                setShowSurahPlayer(true);
+                setSelectedAyah(null);
+                setSelectedWord(null);
+                setPopoverPos(null);
+                setPlayingSurahAyah(1);
+                setPlayingAudioSurahId(currentSurah.id);
+              }}
+              className={`px-2 py-1 rounded-xl border flex items-center gap-1 text-xs font-semibold whitespace-nowrap cursor-pointer transition-all shadow-xs ${
+                showSurahPlayer && audioPlayerMode === 'surah'
+                  ? 'bg-accent text-white border-accent shadow-sm'
+                  : 'bg-surface-elevated border-border text-text hover:border-accent/40'
+              }`}
+              title="الاستماع لتلاوة السورة كاملة"
+            >
+              <BookOpen className="w-3.5 h-3.5 text-accent" />
+              <span>تلاوة السورة</span>
+            </button>
+
+            {/* Studio Card Shortcut */}
+            {onOpenInStudio && ayahs.length > 0 && (
+              <button
+                onClick={() => setShowAyahPicker(true)}
+                className="px-2 py-1 rounded-xl bg-accent-light/70 border border-accent/30 text-accent font-semibold text-xs hover:bg-accent hover:text-white whitespace-nowrap transition-all cursor-pointer flex items-center gap-1 shadow-xs"
+                title="تصميم بطاقة في الاستوديو"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>بطاقة</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -904,7 +922,7 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
 
       
       {/* Mini Floating Action Popover Menu (Near clicked word/ayah) */}
-      {(selectedWord || selectedAyah) && !showTafseerModal && (
+      {(selectedWord || selectedAyah) && !showTafseerModal && !showSurahPlayer && (
         <div 
           id="floating-quran-action-menu"
           onClick={(e) => e.stopPropagation()}
@@ -980,29 +998,16 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
             <>
               {/* Play Full Ayah */}
               <button
-                onClick={() => handlePlaySingleAyah(selectedAyah.surahNumber, selectedAyah.ayahNumber)}
-                className="flex items-center gap-1.5 text-xs font-semibold hover:text-emerald-400 dark:hover:text-emerald-300 cursor-pointer transition-colors whitespace-nowrap"
-                title="الاستماع لتلاوة الآية كاملة"
-              >
-                <Volume2 className={`w-3.5 h-3.5 ${isPlayingSingle ? 'text-emerald-400 animate-pulse' : 'text-emerald-400 dark:text-emerald-300'}`} />
-                <span>{isPlayingSingle ? 'جارٍ التلاوة' : 'استماع للآية'}</span>
-              </button>
-
-              <div className="w-[1px] h-3.5 bg-white/20 shrink-0" />
-
-              {/* Play Page from here */}
-              <button
                 onClick={() => {
-                  setAudioPlayerMode('page');
-                  setPlayingSurahAyah(selectedAyah.ayahNumber);
-                  setPlayingAudioSurahId(selectedAyah.surahNumber);
-                  setShowSurahPlayer(true);
+                  handlePlaySingleAyah(selectedAyah.surahNumber, selectedAyah.ayahNumber);
+                  setSelectedAyah(null);
+                  setPopoverPos(null);
                 }}
-                className="flex items-center gap-1 text-xs font-semibold text-emerald-300 hover:text-emerald-200 cursor-pointer transition-colors whitespace-nowrap"
-                title="الاستماع للصفحة كاملة بدءاً من هذه الآية"
+                className="flex items-center gap-1 text-xs font-semibold hover:text-emerald-400 dark:hover:text-emerald-300 cursor-pointer transition-colors whitespace-nowrap"
+                title="الاستماع لتلاوة الآية"
               >
-                <Headphones className="w-3.5 h-3.5" />
-                <span>الصفحة كاملة</span>
+                <Volume2 className={`w-3.5 h-3.5 ${isPlayingSingle ? 'text-emerald-400 animate-pulse' : 'text-emerald-400'}`} />
+                <span>استماع</span>
               </button>
 
               <div className="w-[1px] h-3.5 bg-white/20 shrink-0" />
@@ -1018,11 +1023,11 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
                   });
                   setShowTafseerModal(true);
                 }}
-                className="flex items-center gap-1.5 text-xs font-semibold hover:text-amber-400 cursor-pointer transition-colors whitespace-nowrap"
-                title="التفسير الميسر لمعاني الآية وكلماتها"
+                className="flex items-center gap-1 text-xs font-semibold hover:text-amber-400 cursor-pointer transition-colors whitespace-nowrap"
+                title="التفسير الميسر"
               >
                 <BookOpen className="w-3.5 h-3.5 text-amber-400" />
-                <span>التفسير الميسر</span>
+                <span>التفسير</span>
               </button>
 
               <div className="w-[1px] h-3.5 bg-white/20 shrink-0" />
