@@ -86,7 +86,7 @@ export default defineConfig({
             options: {
               cacheName: 'maladh-offline-audio-v1',
               expiration: {
-                maxEntries: 50,
+                maxEntries: 100,
                 maxAgeSeconds: 365 * 24 * 60 * 60, // 1 year
               },
               cacheableResponse: {
@@ -95,13 +95,27 @@ export default defineConfig({
             }
           },
           {
-            urlPattern: /^https:\/\/download\.quranicaudio\.com\/.*/i,
+            urlPattern: /^https:\/\/(everyayah\.com|verses\.quran\.com|download\.quranicaudio\.com|audio\.qurancdn\.com|.*\.mp3quran\.net)\/.*/i,
             handler: 'CacheFirst',
             options: {
               cacheName: 'maladh-quran-audio-cache',
               expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 24 * 60 * 60, // 60 days
+                maxEntries: 1500,
+                maxAgeSeconds: 365 * 24 * 60 * 60, // 1 year
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          },
+          {
+            urlPattern: /^https:\/\/api\.alquran\.cloud\/v1\/ayah\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'maladh-quran-tafseer-cache',
+              expiration: {
+                maxEntries: 1000,
+                maxAgeSeconds: 365 * 24 * 60 * 60, // 1 year
               },
               cacheableResponse: {
                 statuses: [0, 200]

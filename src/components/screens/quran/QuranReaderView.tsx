@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bookmark, ChevronRight, ChevronLeft, Loader2, RefreshCw, AlertCircle, Sparkles, Type } from 'lucide-react';
+import { Bookmark, ChevronRight, ChevronLeft, Loader2, RefreshCw, AlertCircle, Sparkles, Type, Headphones } from 'lucide-react';
 import { QURAN_SURAHS, type SurahMeta } from '../../../data/quranSurahs';
 import { db } from '../../../db';
 import { AyahPickerModal } from './AyahPickerModal';
 import { AyahActionModal } from './AyahActionModal';
+import { SurahAudioPlayerBar } from './SurahAudioPlayerBar';
 
 interface ApiAyah {
   number: number;
@@ -130,6 +131,8 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
     ayahNumber: number;
     text: string;
   } | null>(null);
+  const [showSurahPlayer, setShowSurahPlayer] = useState<boolean>(false);
+  const [playingSurahAyah, setPlayingSurahAyah] = useState<number | null>(null);
   const [ayahs, setAyahs] = useState<ApiAyah[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -399,6 +402,20 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
             <span className="text-[11px]">{fontMode === 'clear' ? 'النسخ الواضح' : 'خط مجمع الملك فهد'}</span>
           </button>
 
+          {/* Full Surah Audio Player Trigger */}
+          <button
+            onClick={() => setShowSurahPlayer((prev) => !prev)}
+            className={`px-2.5 py-1.5 rounded-xl border flex items-center gap-1.5 text-xs font-semibold cursor-pointer transition-all shadow-xs ${
+              showSurahPlayer
+                ? 'bg-primary text-white border-primary shadow-sm'
+                : 'bg-surface-elevated border-border text-primary hover:border-primary/40'
+            }`}
+            title="الاستماع للسورة كاملة بصوت القارئ مع تتبع الآيات وتحميلها أوفلاين"
+          >
+            <Headphones className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">سورة كاملة</span>
+          </button>
+
           {/* Studio Card Shortcut - Opens Ayah Selector Modal */}
           {onOpenInStudio && ayahs.length > 0 && (
             <button
@@ -537,7 +554,8 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
                   >
                     {block.ayahs.map((ayah, aIdx) => {
                       const displayText = cleanAyahText(ayah.text, ayah.numberInSurah, ayah.surah.number);
-                      const isSelected = selectedAyah?.surahNumber === block.surahNumber && selectedAyah?.ayahNumber === ayah.numberInSurah;
+                      const isPlayingInSurah = playingSurahAyah === ayah.numberInSurah && currentSurah.id === block.surahNumber;
+                      const isSelected = (selectedAyah?.surahNumber === block.surahNumber && selectedAyah?.ayahNumber === ayah.numberInSurah) || isPlayingInSurah;
                       return (
                         <span 
                           key={`ayah_${block.surahNumber}_${ayah.numberInSurah}_${aIdx}`}
@@ -550,7 +568,9 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
                             });
                           }}
                           className={`cursor-pointer transition-all duration-200 rounded-xl px-1 py-0.5 inline-block my-0.5 ${
-                            isSelected
+                            isPlayingInSurah
+                              ? 'bg-primary/20 dark:bg-primary/30 text-primary dark:text-primary-light font-bold ring-2 ring-primary/60 scale-[1.01] shadow-xs'
+                              : isSelected
                               ? 'bg-accent/20 dark:bg-accent/35 text-primary dark:text-accent font-semibold shadow-xs ring-1 ring-accent/50'
                               : 'hover:bg-accent/10 dark:hover:bg-accent/20'
                           }`}
@@ -622,6 +642,37 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
           ayahNumber={selectedAyah.ayahNumber}
           ayahText={selectedAyah.text}
           onOpenInStudio={onOpenInStudio}
+        />
+      )}
+
+      {/* Full Surah Audio Player with Offline Download & Auto-Tracking */}
+      {showSurahPlayer && (
+        <SurahAudioPlayerBar
+          surah={currentSurah}
+          activeAyahNumber={playingSurahAyah || 1}
+          onAyahChange={(ayahNum) => {
+            setPlayingSurahAyah(ayahNum);
+            // Check if this ayah is on current page
+            const existsOnPage = ayahs.some((a) => a.surah.number === currentSurah.id && a.numberInSurah === ayahNum);
+            if (!existsOnPage) {
+              // Try finding the page in full Quran cache
+              getFullQuran().then((fq) => {
+                for (const [pStr, pageAyahs] of Object.entries(fq)) {
+                  if (pageAyahs.some((a: any) => a.s === currentSurah.id && a.a === ayahNum)) {
+                    const p = parseInt(pStr, 10);
+                    if (p !== pageNumber) {
+                      onPageChange(p);
+                    }
+                    break;
+                  }
+                }
+              }).catch(() => {});
+            }
+          }}
+          onClose={() => {
+            setShowSurahPlayer(false);
+            setPlayingSurahAyah(null);
+          }}
         />
       )}
     </div>
