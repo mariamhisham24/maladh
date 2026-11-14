@@ -95,7 +95,7 @@ async function loadFromLocalQuranJson(pageNumber: number): Promise<ApiAyah[]> {
   try {
     const recordsToCache = mapped.map((a) => ({
       id: `local_p${pageNumber}_s${a.surah.number}_a${a.numberInSurah}`,
-      edition_id: 'king-fahd-complex-v1',
+      edition_id: 'king-fahd-complex-v2',
       surah_id: a.surah.number,
       ayah_number: a.numberInSurah,
       text_uthmani: a.text,
@@ -140,6 +140,7 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
     ayahNumber: number;
     text: string;
   } | null>(null);
+  const [popoverPos, setPopoverPos] = useState<{ x: number; y: number; placeAbove: boolean } | null>(null);
   const [showSurahPlayer, setShowSurahPlayer] = useState<boolean>(false);
   const [playingSurahAyah, setPlayingSurahAyah] = useState<number | null>(null);
   const [showTafseerModal, setShowTafseerModal] = useState<boolean>(false);
@@ -203,7 +204,15 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
   };
 
   // Word Click Handler: Immediately plays word audio & selects ONLY this word!
-  const handleWordClick = (sId: number, sName: string, aNum: number, wIdx: number, word: string, fullText: string) => {
+  const handleWordClick = (
+    sId: number, 
+    sName: string, 
+    aNum: number, 
+    wIdx: number, 
+    word: string, 
+    fullText: string,
+    targetEl?: HTMLElement
+  ) => {
     setSelectedAyah(null); // Clear full ayah selection so only this word is highlighted!
     setSelectedWord({
       surahNumber: sId,
@@ -213,15 +222,33 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
       wordText: word,
       fullAyahText: fullText,
     });
+
+    if (targetEl) {
+      const rect = targetEl.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const placeAbove = rect.top >= 70;
+      const targetY = placeAbove ? rect.top - 8 : rect.bottom + 8;
+      const margin = 140;
+      const clampedX = Math.max(margin, Math.min(window.innerWidth - margin, centerX));
+      setPopoverPos({ x: clampedX, y: targetY, placeAbove });
+    }
+
     // Immediately listen to this word!
     handlePlaySingleWord(sId, aNum, wIdx);
   };
 
   // Ayah Click Handler: Selects the entire Ayah!
-  const handleAyahClick = (sId: number, sName: string, aNum: number, fullText: string) => {
+  const handleAyahClick = (
+    sId: number, 
+    sName: string, 
+    aNum: number, 
+    fullText: string,
+    targetEl?: HTMLElement
+  ) => {
     setSelectedWord(null); // Clear single word selection
     if (selectedAyah?.surahNumber === sId && selectedAyah?.ayahNumber === aNum) {
       setSelectedAyah(null);
+      setPopoverPos(null);
     } else {
       setSelectedAyah({
         surahNumber: sId,
@@ -229,6 +256,16 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
         ayahNumber: aNum,
         text: fullText,
       });
+
+      if (targetEl) {
+        const rect = targetEl.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const placeAbove = rect.top >= 70;
+        const targetY = placeAbove ? rect.top - 8 : rect.bottom + 8;
+        const margin = 140;
+        const clampedX = Math.max(margin, Math.min(window.innerWidth - margin, centerX));
+        setPopoverPos({ x: clampedX, y: targetY, placeAbove });
+      }
     }
   };
 
@@ -257,44 +294,45 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
     };
   };
 
-  // Dismiss Floating Action Menu when clicking anywhere outside or pressing Escape
+  // Dismiss Floating Action Menu when clicking anywhere outside, scrolling, or pressing Escape
   useEffect(() => {
     if (!selectedWord && !selectedAyah) return;
 
-    const handleGlobalClick = (e: MouseEvent | TouchEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (!target) return;
-      // If clicking inside the floating action menu, do not dismiss
-      if (target.closest('#floating-quran-action-menu')) {
-        return;
+    const handleDismiss = (e?: MouseEvent | TouchEvent) => {
+      if (e) {
+        const target = e.target as HTMLElement | null;
+        if (!target) return;
+        if (target.closest('#floating-quran-action-menu')) {
+          return;
+        }
+        if (target.closest('[role="dialog"]') || target.closest('.ayah-action-modal')) {
+          return;
+        }
       }
-      // If clicking inside a modal/dialog, do not dismiss
-      if (target.closest('[role="dialog"]') || target.closest('.ayah-action-modal')) {
-        return;
-      }
-      // Clicked anywhere else: dismiss selection!
       setSelectedAyah(null);
       setSelectedWord(null);
+      setPopoverPos(null);
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setSelectedAyah(null);
         setSelectedWord(null);
+        setPopoverPos(null);
       }
     };
 
-    // Small delay ensures the opening click itself doesn't trigger dismissal
     const timer = setTimeout(() => {
-      window.addEventListener('click', handleGlobalClick);
-      window.addEventListener('touchend', handleGlobalClick);
+      window.addEventListener('click', handleDismiss);
+      window.addEventListener('touchend', handleDismiss);
       window.addEventListener('keydown', handleKeyDown);
+      window.addEventListener('scroll', () => handleDismiss(), { passive: true });
     }, 50);
 
     return () => {
       clearTimeout(timer);
-      window.removeEventListener('click', handleGlobalClick);
-      window.removeEventListener('touchend', handleGlobalClick);
+      window.removeEventListener('click', handleDismiss);
+      window.removeEventListener('touchend', handleDismiss);
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [selectedWord, selectedAyah]);
@@ -319,7 +357,7 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
       try {
         const cachedInDb = await db.quran_ayahs.where('page_number').equals(pageNumber).toArray();
         if (cachedInDb && cachedInDb.length > 0) {
-          if (cachedInDb[0].edition_id !== 'king-fahd-complex-v1') {
+          if (cachedInDb[0].edition_id !== 'king-fahd-complex-v2') {
             // Purge legacy corrupted cache
             await db.quran_ayahs.where('page_number').equals(pageNumber).delete();
           } else {
@@ -498,12 +536,16 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
     }
   };
 
-  // Helper to remove duplicated Basmala from text_uthmani if surah header handles it
+  // Helper to clean and normalize Ayah text (remove duplicated Basmala and attach waqf marks to preceding words)
   const cleanAyahText = (text: string, numberInSurah: number, surahNumber: number): string => {
+    let cleaned = text;
     if (numberInSurah === 1 && surahNumber !== 1) {
-      return text.replace(/^[\uFEFF\s]*بِسْمِ\s+ٱللَّهِ\s+ٱلرَّحْمَ[ٰـ]نِ\s+ٱلرَّحِيمِ\s*/, '');
+      cleaned = cleaned.replace(/^[\uFEFF\s]*بِسْمِ\s+ٱللَّهِ\s+ٱلرَّحْمَ[ٰـ]نِ\s+ٱلرَّحِيمِ\s*/, '');
     }
-    return text;
+    // Safeguard: Attach Quranic waqf marks (ۖ ۗ ۘ ۙ ۚ ۛ ۜ ۩) to preceding word so they are never treated as separate words
+    cleaned = cleaned.replace(/\s+([ۖۗۘۙۚۛۜ۩])/g, '$1');
+    cleaned = cleaned.replace(/([۞])\s+/g, '$1');
+    return cleaned;
   };
 
   const currentJuz = ayahs.length > 0 ? ayahs[0].juz : currentSurah.juz;
@@ -515,6 +557,7 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
         if (selectedWord || selectedAyah) {
           setSelectedAyah(null);
           setSelectedWord(null);
+          setPopoverPos(null);
         }
       }}
       className="space-y-4 animate-fade-in text-right select-text"
@@ -739,7 +782,7 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
                                 key={`w_${wordKey}`}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleWordClick(block.surahNumber, block.surahName, ayah.numberInSurah, wIdx, word, displayText);
+                                  handleWordClick(block.surahNumber, block.surahName, ayah.numberInSurah, wIdx, word, displayText, e.currentTarget);
                                 }}
                                 className={`inline cursor-pointer transition-colors duration-150 select-text ${
                                   isWordSelected || isWordPlaying
@@ -759,7 +802,7 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
                           <span
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleAyahClick(block.surahNumber, block.surahName, ayah.numberInSurah, displayText);
+                              handleAyahClick(block.surahNumber, block.surahName, ayah.numberInSurah, displayText, e.currentTarget);
                             }}
                             className={`inline-flex items-center justify-center mx-1 font-sans font-bold text-xs select-none align-middle cursor-pointer transition-all ${
                               isAyahSelected
@@ -821,12 +864,24 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
       />
 
       
-      {/* Mini Floating Action Pill Menu (Word-by-Word & Ayah-by-Ayah with التفسير الميسر) */}
+      {/* Mini Floating Action Popover Menu (Near clicked word/ayah) */}
       {(selectedWord || selectedAyah) && !showTafseerModal && (
         <div 
           id="floating-quran-action-menu"
           onClick={(e) => e.stopPropagation()}
-          className="fixed bottom-24 sm:bottom-28 left-1/2 -translate-x-1/2 z-40 bg-[#151D24]/95 dark:bg-[#0D141C]/95 backdrop-blur-md text-white rounded-full px-4 py-2 shadow-2xl flex items-center gap-2.5 sm:gap-3.5 border border-emerald-500/25 animate-slide-up max-w-[95vw] overflow-x-auto no-scrollbar"
+          style={
+            popoverPos
+              ? {
+                  position: 'fixed',
+                  left: `${popoverPos.x}px`,
+                  top: `${popoverPos.y}px`,
+                  transform: `translate(-50%, ${popoverPos.placeAbove ? '-100%' : '0'})`,
+                }
+              : undefined
+          }
+          className={`z-50 bg-[#151D24]/95 dark:bg-[#0D141C]/95 backdrop-blur-md text-white rounded-full px-3.5 py-2 shadow-2xl flex items-center gap-2 sm:gap-3 border border-emerald-500/30 animate-fade-in max-w-[95vw] overflow-x-auto no-scrollbar whitespace-nowrap transition-all duration-150 ${
+            !popoverPos ? 'fixed bottom-24 sm:bottom-28 left-1/2 -translate-x-1/2' : ''
+          }`}
           dir="rtl"
         >
           {selectedWord ? (
@@ -839,7 +894,7 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
                 title={`إعادة نطق كلمة «${selectedWord.wordText}»`}
               >
                 <Volume2 className={`w-3.5 h-3.5 ${playingWordKey ? 'animate-bounce text-emerald-300' : ''}`} />
-                <span>نطق «{selectedWord.wordText}»</span>
+                <span>نطق «{selectedWord.wordText.replace(/[ۖۗۘۙۚۛۜ۩]/g, '').trim()}»</span>
               </button>
 
               <div className="w-[1px] h-3.5 bg-white/20 shrink-0" />
@@ -927,6 +982,7 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
             onClick={() => {
               setSelectedAyah(null);
               setSelectedWord(null);
+              setPopoverPos(null);
             }}
             className="text-white/60 hover:text-white cursor-pointer transition-colors shrink-0"
             title="إلغاء التحديد"
