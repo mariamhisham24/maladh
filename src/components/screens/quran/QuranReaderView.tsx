@@ -202,8 +202,9 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
     });
   };
 
-  // Word Click Handler
+  // Word Click Handler: Immediately plays word audio & selects ONLY this word!
   const handleWordClick = (sId: number, sName: string, aNum: number, wIdx: number, word: string, fullText: string) => {
+    setSelectedAyah(null); // Clear full ayah selection so only this word is highlighted!
     setSelectedWord({
       surahNumber: sId,
       surahName: sName,
@@ -212,18 +213,14 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
       wordText: word,
       fullAyahText: fullText,
     });
-    setSelectedAyah({
-      surahNumber: sId,
-      surahName: sName,
-      ayahNumber: aNum,
-      text: fullText,
-    });
+    // Immediately listen to this word!
+    handlePlaySingleWord(sId, aNum, wIdx);
   };
 
-  // Ayah Bracket Click Handler
+  // Ayah Click Handler: Selects the entire Ayah!
   const handleAyahClick = (sId: number, sName: string, aNum: number, fullText: string) => {
-    setSelectedWord(null);
-    if (selectedAyah?.surahNumber === sId && selectedAyah?.ayahNumber === aNum && !selectedWord) {
+    setSelectedWord(null); // Clear single word selection
+    if (selectedAyah?.surahNumber === sId && selectedAyah?.ayahNumber === aNum) {
       setSelectedAyah(null);
     } else {
       setSelectedAyah({
@@ -695,12 +692,12 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
                                 }}
                                 className={`inline cursor-pointer transition-colors duration-150 select-text ${
                                   isWordSelected || isWordPlaying
-                                    ? 'text-[#237A6B] dark:text-[#4FD1C5] font-bold underline decoration-2 decoration-[#237A6B]/50'
+                                    ? 'text-[#1B7E6B] dark:text-[#34E7B7] font-bold underline decoration-2 decoration-[#1B7E6B]/60 dark:decoration-[#34E7B7]/70'
                                     : isAyahSelected
-                                    ? 'text-[#237A6B] dark:text-[#4FD1C5] font-semibold'
-                                    : 'text-[#14120E] dark:text-[#F5F2EA] hover:text-[#237A6B]'
+                                    ? 'text-[#1B7E6B] dark:text-[#34E7B7] font-semibold'
+                                    : 'text-[#14120E] dark:text-[#F5F2EA] hover:text-[#1B7E6B] dark:hover:text-[#34E7B7]'
                                 }`}
-                                title={`اضغط لسماع كلمة «${word}» أو معرفة معناها`}
+                                title={`اضغط للاستماع لكلمة «${word}»`}
                               >
                                 {word}{' '}
                               </span>
@@ -713,10 +710,10 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
                               e.stopPropagation();
                               handleAyahClick(block.surahNumber, block.surahName, ayah.numberInSurah, displayText);
                             }}
-                            className={`inline-flex items-center justify-center mx-1 font-sans font-bold text-xs select-none align-middle cursor-pointer transition-colors ${
+                            className={`inline-flex items-center justify-center mx-1 font-sans font-bold text-xs select-none align-middle cursor-pointer transition-all ${
                               isAyahSelected
-                                ? 'text-[#237A6B] dark:text-[#4FD1C5] scale-110'
-                                : 'text-accent hover:text-[#237A6B]'
+                                ? 'text-[#1B7E6B] dark:text-[#34E7B7] scale-110 drop-shadow-xs'
+                                : 'text-accent hover:text-[#1B7E6B] dark:hover:text-[#34E7B7]'
                             }`}
                             title="اضغط لتحديد الآية كاملة واستماعها"
                           >
@@ -773,66 +770,104 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
       />
 
       
-      {/* Mini Floating Action Pill Menu (Supporting Word-by-Word & Ayah-by-Ayah with التفسير الميسر) */}
-      {selectedAyah && !showTafseerModal && (
+      {/* Mini Floating Action Pill Menu (Word-by-Word & Ayah-by-Ayah with التفسير الميسر) */}
+      {(selectedWord || selectedAyah) && !showTafseerModal && (
         <div 
-          className="fixed bottom-24 sm:bottom-28 left-1/2 -translate-x-1/2 z-40 bg-[#151D24]/95 dark:bg-[#0D141C]/95 backdrop-blur-md text-white rounded-full px-4 py-2 shadow-2xl flex items-center gap-3 border border-emerald-500/20 animate-slide-up"
+          className="fixed bottom-24 sm:bottom-28 left-1/2 -translate-x-1/2 z-40 bg-[#151D24]/95 dark:bg-[#0D141C]/95 backdrop-blur-md text-white rounded-full px-4 py-2 shadow-2xl flex items-center gap-2.5 sm:gap-3.5 border border-emerald-500/25 animate-slide-up max-w-[95vw] overflow-x-auto no-scrollbar"
           dir="rtl"
         >
-          {/* If a specific word is selected: Word Audio Button */}
-          {selectedWord && (
+          {selectedWord ? (
+            /* When a Single Word is selected: Immediate Word Pronunciation & Action */
             <>
+              {/* Play Word */}
               <button
                 onClick={() => handlePlaySingleWord(selectedWord.surahNumber, selectedWord.ayahNumber, selectedWord.wordIndex)}
-                className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400 hover:text-emerald-300 cursor-pointer transition-colors"
-                title={`الاستماع لنطق كلمة «${selectedWord.wordText}»`}
+                className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400 dark:text-emerald-300 hover:text-emerald-200 cursor-pointer transition-colors whitespace-nowrap"
+                title={`إعادة نطق كلمة «${selectedWord.wordText}»`}
               >
-                <Volume2 className={`w-3.5 h-3.5 ${playingWordKey ? 'animate-bounce' : ''}`} />
-                <span>نطق الكلمة</span>
+                <Volume2 className={`w-3.5 h-3.5 ${playingWordKey ? 'animate-bounce text-emerald-300' : ''}`} />
+                <span>نطق «{selectedWord.wordText}»</span>
               </button>
-              <div className="w-[1px] h-3.5 bg-white/20" />
+
+              <div className="w-[1px] h-3.5 bg-white/20 shrink-0" />
+
+              {/* Expand to Full Ayah Button */}
+              <button
+                onClick={() => {
+                  setSelectedAyah({
+                    surahNumber: selectedWord.surahNumber,
+                    surahName: selectedWord.surahName,
+                    ayahNumber: selectedWord.ayahNumber,
+                    text: selectedWord.fullAyahText,
+                  });
+                  setSelectedWord(null);
+                }}
+                className="flex items-center gap-1 text-xs font-semibold text-sky-400 hover:text-sky-300 cursor-pointer transition-colors whitespace-nowrap"
+                title="تحديد الآية كاملة"
+              >
+                <span>الآية كاملة</span>
+              </button>
+
+              <div className="w-[1px] h-3.5 bg-white/20 shrink-0" />
+
+              {/* Open التفسير الميسر */}
+              <button
+                onClick={() => {
+                  setSelectedAyah({
+                    surahNumber: selectedWord.surahNumber,
+                    surahName: selectedWord.surahName,
+                    ayahNumber: selectedWord.ayahNumber,
+                    text: selectedWord.fullAyahText,
+                  });
+                  setShowTafseerModal(true);
+                }}
+                className="flex items-center gap-1.5 text-xs font-semibold hover:text-amber-400 cursor-pointer transition-colors whitespace-nowrap"
+                title="التفسير الميسر لمعنى الآية"
+              >
+                <BookOpen className="w-3.5 h-3.5 text-amber-400" />
+                <span>التفسير الميسر</span>
+              </button>
             </>
-          )}
+          ) : selectedAyah ? (
+            /* When Full Ayah is selected */
+            <>
+              {/* Play Full Ayah */}
+              <button
+                onClick={() => handlePlaySingleAyah(selectedAyah.surahNumber, selectedAyah.ayahNumber)}
+                className="flex items-center gap-1.5 text-xs font-semibold hover:text-emerald-400 dark:hover:text-emerald-300 cursor-pointer transition-colors whitespace-nowrap"
+                title="الاستماع لتلاوة الآية كاملة"
+              >
+                <Volume2 className={`w-3.5 h-3.5 ${isPlayingSingle ? 'text-emerald-400 animate-pulse' : 'text-emerald-400 dark:text-emerald-300'}`} />
+                <span>{isPlayingSingle ? 'جارٍ التلاوة' : 'استماع للآية'}</span>
+              </button>
 
-          {/* Play Ayah Audio */}
-          <button
-            onClick={() => handlePlaySingleAyah(selectedAyah.surahNumber, selectedAyah.ayahNumber)}
-            className="flex items-center gap-1.5 text-xs font-semibold hover:text-emerald-400 cursor-pointer transition-colors"
-            title="الاستماع لتلاوة الآية كاملة"
-          >
-            <Volume2 className={`w-3.5 h-3.5 ${isPlayingSingle ? 'text-emerald-400 animate-pulse' : 'text-emerald-400'}`} />
-            <span>{isPlayingSingle ? 'جارٍ التلاوة' : 'استماع الآية'}</span>
-          </button>
+              <div className="w-[1px] h-3.5 bg-white/20 shrink-0" />
 
-          <div className="w-[1px] h-3.5 bg-white/20" />
+              {/* Open التفسير الميسر */}
+              <button
+                onClick={() => setShowTafseerModal(true)}
+                className="flex items-center gap-1.5 text-xs font-semibold hover:text-amber-400 cursor-pointer transition-colors whitespace-nowrap"
+                title="التفسير الميسر لمعاني الآية وكلماتها"
+              >
+                <BookOpen className="w-3.5 h-3.5 text-amber-400" />
+                <span>التفسير الميسر</span>
+              </button>
 
-          {/* Open التفسير الميسر */}
-          <button
-            onClick={() => setShowTafseerModal(true)}
-            className="flex items-center gap-1.5 text-xs font-semibold hover:text-amber-400 cursor-pointer transition-colors"
-            title="التفسير الميسر لمعاني الآية وكلماتها"
-          >
-            <BookOpen className="w-3.5 h-3.5 text-amber-400" />
-            <span>التفسير الميسر</span>
-          </button>
+              <div className="w-[1px] h-3.5 bg-white/20 shrink-0" />
 
-          <div className="w-[1px] h-3.5 bg-white/20" />
+              {/* Copy */}
+              <button
+                onClick={() => handleCopyAyah(selectedAyah.text, selectedAyah.surahName, selectedAyah.ayahNumber)}
+                className="flex items-center gap-1 text-xs font-semibold hover:text-emerald-400 cursor-pointer transition-colors whitespace-nowrap"
+                title="نسخ نص الآية"
+              >
+                {copiedAyah ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copiedAyah ? 'تم' : 'نسخ'}</span>
+              </button>
+            </>
+          ) : null}
 
-          {/* Copy */}
-          <button
-            onClick={() => handleCopyAyah(
-              selectedWord ? selectedWord.wordText : selectedAyah.text, 
-              selectedAyah.surahName, 
-              selectedAyah.ayahNumber
-            )}
-            className="flex items-center gap-1 text-xs font-semibold hover:text-emerald-400 cursor-pointer transition-colors"
-            title={selectedWord ? 'نسخ الكلمة' : 'نسخ نص الآية'}
-          >
-            {copiedAyah ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-            <span>{copiedAyah ? 'تم' : 'نسخ'}</span>
-          </button>
-
-          <div className="w-[1px] h-3.5 bg-white/20" />
+          <div className="w-[1px] h-3.5 bg-white/20 shrink-0" />
 
           {/* Dismiss */}
           <button
@@ -840,7 +875,7 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
               setSelectedAyah(null);
               setSelectedWord(null);
             }}
-            className="text-white/60 hover:text-white cursor-pointer transition-colors"
+            className="text-white/60 hover:text-white cursor-pointer transition-colors shrink-0"
             title="إلغاء التحديد"
           >
             <X className="w-3.5 h-3.5" />
