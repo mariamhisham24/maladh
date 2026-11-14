@@ -102,7 +102,12 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
   // Offline download states
   const [isDownloaded, setIsDownloaded] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isDownloadPaused, setIsDownloadPaused] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
+
+  const abortDownloadRef = useRef<boolean>(false);
+  const pauseDownloadRef = useRef<boolean>(false);
+  const downloadIndexRef = useRef<number>(1);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const currentReciter = QURAN_RECITERS.find((r) => r.id === reciterId) || QURAN_RECITERS[0];
@@ -154,19 +159,27 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
         const cache = await caches.open('maladh-quran-audio-cache');
         if (currentMode === 'page' && pageAyahs.length > 0) {
           const first = pageAyahs[0];
-          const match = await cache.match(getAyahAudioUrl(first.surah.number, first.numberInSurah, currentReciter.folder));
-          setIsDownloaded(Boolean(match));
+          const last = pageAyahs[pageAyahs.length - 1];
+          const [mFirst, mLast] = await Promise.all([
+            cache.match(getAyahAudioUrl(first.surah.number, first.numberInSurah, currentReciter.folder)),
+            cache.match(getAyahAudioUrl(last.surah.number, last.numberInSurah, currentReciter.folder)),
+          ]);
+          setIsDownloaded(Boolean(mFirst && mLast));
         } else {
           const firstAyahUrl = getAyahAudioUrl(surah.id, 1, currentReciter.folder);
-          const match = await cache.match(firstAyahUrl);
-          setIsDownloaded(Boolean(match));
+          const lastAyahUrl = getAyahAudioUrl(surah.id, surah.ayahCount, currentReciter.folder);
+          const [mFirst, mLast] = await Promise.all([
+            cache.match(firstAyahUrl),
+            cache.match(lastAyahUrl),
+          ]);
+          setIsDownloaded(Boolean(mFirst && mLast));
         }
       } catch {
         setIsDownloaded(false);
       }
     };
     checkOfflineCache();
-  }, [currentMode, surah.id, pageAyahs, currentReciter.folder]);
+  }, [currentMode, surah.id, surah.ayahCount, pageAyahs, currentReciter.folder]);
 
   // Play audio for a specific surah & ayah
   const playAyahAudio = (sId: number, aNum: number) => {
@@ -395,9 +408,10 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
     }
   }, []);
 
-  // Clean up audio on unmount
+  // Clean up audio & cancel download on unmount
   useEffect(() => {
     return () => {
+      abortDownloadRef.current = true;
       if (audioRef.current) {
         audioRef.current.onended = null;
         audioRef.current.onerror = null;
@@ -408,23 +422,59 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
     };
   }, []);
 
-  // Download entire current Page or Surah for offline playback
+  // Pause offline download
+  const handlePauseDownload = () => {
+    pauseDownloadRef.current = true;
+    setIsDownloadPaused(true);
+    setIsDownloading(false);
+  };
+
+  // Cancel offline download
+  const handleCancelDownload = () => {
+    abortDownloadRef.current = true;
+    pauseDownloadRef.current = false;
+    downloadIndexRef.current = 1;
+    setIsDownloading(false);
+    setIsDownloadPaused(false);
+    setDownloadProgress(0);
+  };
+
+  // Download entire current Page or Surah for offline playback (with pause/resume & cancel)
   const handleDownloadOffline = async () => {
-    if (isDownloading || isDownloaded) return;
+    if (isDownloading) return;
+    if (isDownloaded) return;
     if (typeof window === 'undefined' || !('caches' in window)) {
       alert('ميزة التخزين بدون إنترنت مدعومة في المتصفحات الحديثة وتطبيق PWA.');
       return;
     }
 
+    abortDownloadRef.current = false;
+    pauseDownloadRef.current = false;
     setIsDownloading(true);
-    setDownloadProgress(0);
+    setIsDownloadPaused(false);
 
     try {
       const cache = await caches.open('maladh-quran-audio-cache');
 
       if (currentMode === 'page') {
         const total = pageAyahs.length;
-        for (let i = 0; i < total; i++) {
+        const startIndex = isDownloadPaused ? downloadIndexRef.current : 0;
+        for (let i = startIndex; i < total; i++) {
+          if (abortDownloadRef.current) {
+            setIsDownloading(false);
+            setIsDownloadPaused(false);
+            setDownloadProgress(0);
+            downloadIndexRef.current = 0;
+            return;
+          }
+          if (pauseDownloadRef.current) {
+            downloadIndexRef.current = i;
+            setIsDownloading(false);
+            setIsDownloadPaused(true);
+            return;
+          }
+
+          downloadIndexRef.current = i;
           const item = pageAyahs[i];
           const url = getAyahAudioUrl(item.surah.number, item.numberInSurah, currentReciter.folder);
           const matched = await cache.match(url);
@@ -434,11 +484,42 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
               if (resp.ok) await cache.put(url, resp);
             } catch {}
           }
+
+          if (abortDownloadRef.current) {
+            setIsDownloading(false);
+            setIsDownloadPaused(false);
+            setDownloadProgress(0);
+            downloadIndexRef.current = 0;
+            return;
+          }
+          if (pauseDownloadRef.current) {
+            downloadIndexRef.current = i + 1;
+            setIsDownloading(false);
+            setIsDownloadPaused(true);
+            return;
+          }
+
           setDownloadProgress(Math.round(((i + 1) / total) * 100));
         }
       } else {
         const total = surah.ayahCount;
-        for (let i = 1; i <= total; i++) {
+        const startAyah = isDownloadPaused ? Math.max(1, downloadIndexRef.current) : 1;
+        for (let i = startAyah; i <= total; i++) {
+          if (abortDownloadRef.current) {
+            setIsDownloading(false);
+            setIsDownloadPaused(false);
+            setDownloadProgress(0);
+            downloadIndexRef.current = 1;
+            return;
+          }
+          if (pauseDownloadRef.current) {
+            downloadIndexRef.current = i;
+            setIsDownloading(false);
+            setIsDownloadPaused(true);
+            return;
+          }
+
+          downloadIndexRef.current = i;
           const url = getAyahAudioUrl(surah.id, i, currentReciter.folder);
           const matched = await cache.match(url);
           if (!matched) {
@@ -447,15 +528,34 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
               if (resp.ok) await cache.put(url, resp);
             } catch {}
           }
+
+          if (abortDownloadRef.current) {
+            setIsDownloading(false);
+            setIsDownloadPaused(false);
+            setDownloadProgress(0);
+            downloadIndexRef.current = 1;
+            return;
+          }
+          if (pauseDownloadRef.current) {
+            downloadIndexRef.current = i + 1;
+            setIsDownloading(false);
+            setIsDownloadPaused(true);
+            return;
+          }
+
           setDownloadProgress(Math.round((i / total) * 100));
         }
       }
 
       setIsDownloaded(true);
       setIsDownloading(false);
+      setIsDownloadPaused(false);
+      downloadIndexRef.current = 1;
+      setDownloadProgress(100);
     } catch (err) {
       console.error('Audio download failed:', err);
       setIsDownloading(false);
+      setIsDownloadPaused(false);
     }
   };
 
@@ -524,31 +624,71 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
           <ChevronDown className="w-3 h-3 text-text-muted absolute left-1 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
 
-        {/* Right buttons: Download + Close */}
-        <div className="flex items-center gap-1">
-          <button
-            onClick={handleDownloadOffline}
-            disabled={isDownloading}
-            className={`p-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer ${
-              isDownloaded
-                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
-                : isDownloading
-                ? 'bg-primary/10 text-primary border border-primary/30'
-                : 'bg-surface border border-border text-text hover:border-primary/50'
-            }`}
-            title={isDownloaded ? 'المقطع محفوظ أوفلاين' : 'تحميل أوفلاين'}
-          >
-            {isDownloading ? (
-              <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
-                <span className="text-[10px]">{downloadProgress}%</span>
-              </>
-            ) : isDownloaded ? (
-              <Check className="w-3.5 h-3.5 text-emerald-500" />
-            ) : (
-              <Download className="w-3.5 h-3.5" />
-            )}
-          </button>
+        {/* Right buttons: Download (with Pause/Resume & Cancel) + Close */}
+        <div className="flex items-center gap-1.5">
+          {isDownloading ? (
+            <div className="flex items-center gap-1 bg-primary/10 border border-primary/25 px-1.5 py-0.5 rounded-xl">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+              <span className="text-[10px] font-mono font-bold text-primary">{downloadProgress}%</span>
+              
+              {/* Pause Button */}
+              <button
+                onClick={handlePauseDownload}
+                className="p-1 hover:bg-primary/20 rounded-md text-primary transition-colors cursor-pointer"
+                title="إيقاف التنزيل مؤقتاً"
+              >
+                <Pause className="w-2.5 h-2.5 fill-primary" />
+              </button>
+
+              {/* Cancel Button */}
+              <button
+                onClick={handleCancelDownload}
+                className="p-1 hover:bg-rose-500/20 rounded-md text-rose-500 transition-colors cursor-pointer"
+                title="إلغاء التنزيل"
+              >
+                <X className="w-2.5 h-2.5" />
+              </button>
+            </div>
+          ) : isDownloadPaused ? (
+            <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/25 px-1.5 py-0.5 rounded-xl">
+              <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">موقوف ({downloadProgress}%)</span>
+              
+              {/* Resume Button */}
+              <button
+                onClick={handleDownloadOffline}
+                className="p-1 hover:bg-amber-500/20 rounded-md text-amber-600 dark:text-amber-400 transition-colors cursor-pointer"
+                title="استئناف التنزيل"
+              >
+                <Play className="w-2.5 h-2.5 fill-amber-600 dark:fill-amber-400" />
+              </button>
+
+              {/* Cancel Button */}
+              <button
+                onClick={handleCancelDownload}
+                className="p-1 hover:bg-rose-500/20 rounded-md text-rose-500 transition-colors cursor-pointer"
+                title="إلغاء التنزيل"
+              >
+                <X className="w-2.5 h-2.5" />
+              </button>
+            </div>
+          ) : isDownloaded ? (
+            <div 
+              className="px-2 py-0.5 rounded-xl text-xs font-semibold flex items-center gap-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+              title="المقطع محفوظ أوفلاين بالكامل"
+            >
+              <Check className="w-3 h-3 text-emerald-500" />
+              <span className="text-[10px] hidden xs:inline">محفوظ</span>
+            </div>
+          ) : (
+            <button
+              onClick={handleDownloadOffline}
+              className="px-2 py-0.5 rounded-xl text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer bg-surface border border-border text-text hover:border-primary/50 shadow-xs"
+              title={currentMode === 'surah' ? `تنزيل سورة ${surah.name} كاملة (${surah.ayahCount} آية) بدون إنترنت` : 'تنزيل الصفحة بدون إنترنت'}
+            >
+              <Download className="w-3 h-3 text-primary" />
+              <span className="text-[10px] hidden xs:inline">تنزيل</span>
+            </button>
+          )}
 
           <button
             onClick={() => {
@@ -563,6 +703,16 @@ export const SurahAudioPlayerBar: React.FC<SurahAudioPlayerBarProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Progress Bar for offline download */}
+      {(isDownloading || isDownloadPaused) && (
+        <div className="w-full bg-border/40 h-1.5 rounded-full overflow-hidden mb-2 -mt-1 shadow-inner">
+          <div 
+            className={`h-full transition-all duration-300 ${isDownloadPaused ? 'bg-amber-500' : 'bg-primary'}`}
+            style={{ width: `${Math.max(3, downloadProgress)}%` }}
+          />
+        </div>
+      )}
 
       {/* Row 2: Track Title & Playback Controls */}
       <div className="flex items-center justify-between gap-2">
