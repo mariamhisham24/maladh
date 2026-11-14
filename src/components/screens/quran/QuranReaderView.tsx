@@ -257,6 +257,48 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
     };
   };
 
+  // Dismiss Floating Action Menu when clicking anywhere outside or pressing Escape
+  useEffect(() => {
+    if (!selectedWord && !selectedAyah) return;
+
+    const handleGlobalClick = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      // If clicking inside the floating action menu, do not dismiss
+      if (target.closest('#floating-quran-action-menu')) {
+        return;
+      }
+      // If clicking inside a modal/dialog, do not dismiss
+      if (target.closest('[role="dialog"]') || target.closest('.ayah-action-modal')) {
+        return;
+      }
+      // Clicked anywhere else: dismiss selection!
+      setSelectedAyah(null);
+      setSelectedWord(null);
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedAyah(null);
+        setSelectedWord(null);
+      }
+    };
+
+    // Small delay ensures the opening click itself doesn't trigger dismissal
+    const timer = setTimeout(() => {
+      window.addEventListener('click', handleGlobalClick);
+      window.addEventListener('touchend', handleGlobalClick);
+      window.addEventListener('keydown', handleKeyDown);
+    }, 50);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('click', handleGlobalClick);
+      window.removeEventListener('touchend', handleGlobalClick);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selectedWord, selectedAyah]);
+
 
   // Fetch page data with Dexie caching & memory cache
   useEffect(() => {
@@ -467,7 +509,16 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
   const currentJuz = ayahs.length > 0 ? ayahs[0].juz : currentSurah.juz;
 
   return (
-    <div ref={containerRef} className="space-y-4 animate-fade-in text-right select-text">
+    <div 
+      ref={containerRef} 
+      onClick={() => {
+        if (selectedWord || selectedAyah) {
+          setSelectedAyah(null);
+          setSelectedWord(null);
+        }
+      }}
+      className="space-y-4 animate-fade-in text-right select-text"
+    >
       {/* Reader Controls Top Bar */}
       <div className="bg-surface rounded-2xl p-2.5 sm:p-3 border border-border flex flex-col md:flex-row md:items-center justify-between gap-2.5 text-xs shadow-xs">
         {/* Actions Group with Smooth Scrolling */}
@@ -773,6 +824,8 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
       {/* Mini Floating Action Pill Menu (Word-by-Word & Ayah-by-Ayah with التفسير الميسر) */}
       {(selectedWord || selectedAyah) && !showTafseerModal && (
         <div 
+          id="floating-quran-action-menu"
+          onClick={(e) => e.stopPropagation()}
           className="fixed bottom-24 sm:bottom-28 left-1/2 -translate-x-1/2 z-40 bg-[#151D24]/95 dark:bg-[#0D141C]/95 backdrop-blur-md text-white rounded-full px-4 py-2 shadow-2xl flex items-center gap-2.5 sm:gap-3.5 border border-emerald-500/25 animate-slide-up max-w-[95vw] overflow-x-auto no-scrollbar"
           dir="rtl"
         >
