@@ -125,6 +125,15 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
   const [jumpInput, setJumpInput] = useState<string>('');
   const [showJump, setShowJump] = useState<boolean>(false);
   const [showAyahPicker, setShowAyahPicker] = useState<boolean>(false);
+  const [selectedWord, setSelectedWord] = useState<{
+    surahNumber: number;
+    surahName: string;
+    ayahNumber: number;
+    wordIndex: number;
+    wordText: string;
+    fullAyahText: string;
+  } | null>(null);
+  const [playingWordKey, setPlayingWordKey] = useState<string | null>(null);
   const [selectedAyah, setSelectedAyah] = useState<{
     surahNumber: number;
     surahName: string;
@@ -191,6 +200,64 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
       setCopiedAyah(true);
       setTimeout(() => setCopiedAyah(false), 2000);
     });
+  };
+
+  // Word Click Handler
+  const handleWordClick = (sId: number, sName: string, aNum: number, wIdx: number, word: string, fullText: string) => {
+    setSelectedWord({
+      surahNumber: sId,
+      surahName: sName,
+      ayahNumber: aNum,
+      wordIndex: wIdx,
+      wordText: word,
+      fullAyahText: fullText,
+    });
+    setSelectedAyah({
+      surahNumber: sId,
+      surahName: sName,
+      ayahNumber: aNum,
+      text: fullText,
+    });
+  };
+
+  // Ayah Bracket Click Handler
+  const handleAyahClick = (sId: number, sName: string, aNum: number, fullText: string) => {
+    setSelectedWord(null);
+    if (selectedAyah?.surahNumber === sId && selectedAyah?.ayahNumber === aNum && !selectedWord) {
+      setSelectedAyah(null);
+    } else {
+      setSelectedAyah({
+        surahNumber: sId,
+        surahName: sName,
+        ayahNumber: aNum,
+        text: fullText,
+      });
+    }
+  };
+
+  // Play Single Word Audio
+  const handlePlaySingleWord = (sId: number, aNum: number, wIdx: number) => {
+    if (singleAudioRef.current) {
+      singleAudioRef.current.pause();
+    }
+    const sStr = String(sId).padStart(3, '0');
+    const aStr = String(aNum).padStart(3, '0');
+    const wStr = String(wIdx + 1).padStart(3, '0');
+    const wordUrl = `https://audio.qurancdn.com/wbw/${sStr}_${aStr}_${wStr}.mp3`;
+    const audio = new Audio(wordUrl);
+    singleAudioRef.current = audio;
+    const key = `${sId}_${aNum}_${wIdx}`;
+    setPlayingWordKey(key);
+
+    audio.play().catch(() => {
+      setPlayingWordKey(null);
+    });
+    audio.onended = () => {
+      setPlayingWordKey(null);
+    };
+    audio.onerror = () => {
+      setPlayingWordKey(null);
+    };
   };
 
 
@@ -405,75 +472,76 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
   return (
     <div ref={containerRef} className="space-y-4 animate-fade-in text-right select-text">
       {/* Reader Controls Top Bar */}
-      <div className="bg-surface rounded-2xl p-3 border border-border flex items-center justify-between text-xs">
-        <div className="flex items-center gap-2">
-          {/* Bookmark Button (Toggle On / Off) */}
+      <div className="bg-surface rounded-2xl p-2.5 sm:p-3 border border-border flex flex-col md:flex-row md:items-center justify-between gap-2.5 text-xs shadow-xs">
+        {/* Actions Group with Smooth Scrolling */}
+        <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-0.5">
+          {/* Bookmark Button */}
           <button
             onClick={() => onToggleBookmark(pageNumber, currentSurah)}
-            className={`px-3 py-1.5 rounded-xl border flex items-center gap-1.5 transition-all cursor-pointer ${
+            className={`px-3 py-1.5 rounded-xl border flex items-center gap-1.5 text-xs font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
               isBookmarked
-                ? 'bg-accent text-white border-accent font-semibold shadow-xs hover:bg-accent/90'
+                ? 'bg-accent text-white border-accent shadow-xs'
                 : 'bg-surface-elevated border-border text-text hover:border-accent/40'
             }`}
-            title={isBookmarked ? 'إزالة الفاصلة من هذه الصفحة' : 'حفظ الفاصلة في هذه الصفحة'}
+            title={isBookmarked ? 'إزالة الفاصلة' : 'حفظ فاصلة هنا'}
           >
             <Bookmark className={`w-3.5 h-3.5 ${isBookmarked ? 'fill-white' : ''}`} />
-            <span>{isBookmarked ? 'إزالة الفاصلة ✕' : 'ضع فاصلة'}</span>
+            <span>{isBookmarked ? 'فاصلة ✓' : 'حفظ فاصلة'}</span>
           </button>
 
           {/* Font scaler */}
-          <div className="flex items-center gap-1 bg-surface-elevated border border-border px-2 py-1 rounded-xl">
+          <div className="flex items-center gap-1 bg-surface-elevated border border-border px-2 py-1 rounded-xl shrink-0">
             <button
               onClick={() => setFontSizeScale((prev) => Math.max(18, prev - 2))}
-              className="text-xs text-primary font-bold hover:opacity-75 cursor-pointer px-1.5"
+              className="text-xs text-primary font-bold hover:opacity-75 cursor-pointer px-1"
               title="تصغير الخط"
             >
               −
             </button>
-            <span className="text-[10px] text-text-muted font-mono">{fontSizeScale}</span>
+            <span className="text-[11px] text-text-muted font-mono px-0.5">{fontSizeScale}</span>
             <button
               onClick={() => setFontSizeScale((prev) => Math.min(36, prev + 2))}
-              className="text-xs text-primary font-bold hover:opacity-75 cursor-pointer px-1.5"
+              className="text-xs text-primary font-bold hover:opacity-75 cursor-pointer px-1"
               title="تكبير الخط"
             >
               ＋
             </button>
           </div>
 
-          {/* Font Mode Switcher: King Fahd Uthman Taha vs Clear Naskh */}
+          {/* Font Mode Switcher: خط عثمان طه vs خط النسخ */}
           <button
             onClick={() => {
               const next = fontMode === 'uthmani' ? 'clear' : 'uthmani';
               setFontMode(next);
               localStorage.setItem('maladh_quran_font_mode', next);
             }}
-            className="px-2.5 py-1.5 rounded-xl bg-surface-elevated border border-border text-xs text-primary font-semibold hover:border-accent/40 cursor-pointer flex items-center gap-1.5 transition-all shadow-xs"
-            title="تبديل نمط الخط القرآني"
+            className="px-2.5 py-1.5 rounded-xl bg-surface-elevated border border-border text-xs text-primary font-semibold hover:border-primary/40 cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-all shadow-xs"
+            title="تبديل نوع الخط القرآني"
           >
             <Type className="w-3.5 h-3.5 text-accent" />
-            <span className="text-[11px]">{fontMode === 'clear' ? 'النسخ الواضح' : 'خط مجمع الملك فهد'}</span>
+            <span>{fontMode === 'clear' ? 'خط النسخ' : 'خط عثمان طه'}</span>
           </button>
 
-          {/* Full Surah Audio Player Trigger */}
+          {/* Audio Recitation Button: تلاوة صوتية */}
           <button
             onClick={() => setShowSurahPlayer((prev) => !prev)}
-            className={`px-2.5 py-1.5 rounded-xl border flex items-center gap-1.5 text-xs font-semibold cursor-pointer transition-all shadow-xs ${
+            className={`px-3 py-1.5 rounded-xl border flex items-center gap-1.5 text-xs font-semibold whitespace-nowrap shrink-0 cursor-pointer transition-all shadow-xs ${
               showSurahPlayer
                 ? 'bg-primary text-white border-primary shadow-sm'
-                : 'bg-surface-elevated border-border text-primary hover:border-primary/40'
+                : 'bg-primary/10 border-primary/30 text-primary hover:bg-primary/20'
             }`}
-            title="الاستماع للسورة كاملة بصوت القارئ مع تتبع الآيات وتحميلها أوفلاين"
+            title="تشغيل التلاوة الصوتية مع المتابعة التلقائية وتحميل الأوفلاين"
           >
             <Headphones className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">سورة كاملة</span>
+            <span>تلاوة صوتية</span>
           </button>
 
-          {/* Studio Card Shortcut - Opens Ayah Selector Modal */}
+          {/* Studio Card Shortcut */}
           {onOpenInStudio && ayahs.length > 0 && (
             <button
               onClick={() => setShowAyahPicker(true)}
-              className="px-2.5 py-1.5 rounded-xl bg-accent-light/70 border border-accent/30 text-accent font-semibold text-xs hover:bg-accent hover:text-white transition-all cursor-pointer flex items-center gap-1 shadow-xs"
-              title="تحديد آيات وتحويلها إلى بطاقة في الاستوديو"
+              className="px-2.5 py-1.5 rounded-xl bg-accent-light/70 border border-accent/30 text-accent font-semibold text-xs hover:bg-accent hover:text-white whitespace-nowrap shrink-0 transition-all cursor-pointer flex items-center gap-1 shadow-xs"
+              title="تصميم بطاقة في الاستوديو"
             >
               <Sparkles className="w-3.5 h-3.5" />
               <span>بطاقة</span>
@@ -482,19 +550,18 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
         </div>
 
         {/* Surah info and jump trigger */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between md:justify-end gap-2 shrink-0 border-t md:border-t-0 border-border/60 pt-2 md:pt-0">
           <button
             onClick={() => setShowJump(!showJump)}
-            className="text-primary hover:underline font-mono text-xs font-semibold cursor-pointer"
+            className="text-primary hover:underline font-mono text-xs font-semibold cursor-pointer px-2 py-1 rounded-lg hover:bg-primary/5 transition-colors whitespace-nowrap"
           >
-            صفحة {pageNumber} من ٦٠٤ ▾
+            صفحة {toArabicNumber(pageNumber)} من ٦٠٤ ▾
           </button>
-          <span className="font-alexandria font-bold text-xs text-text">
+          <span className="font-alexandria font-bold text-xs text-text bg-surface-elevated px-2.5 py-1 rounded-xl border border-border whitespace-nowrap">
             سورة {currentSurah.name}
           </span>
         </div>
       </div>
-
 
       {/* Jump to Page Popover */}
       {showJump && (
@@ -606,38 +673,52 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
                   >
                     {block.ayahs.map((ayah, aIdx) => {
                       const displayText = cleanAyahText(ayah.text, ayah.numberInSurah, ayah.surah.number);
+                      const words = displayText.trim().split(/\s+/).filter(Boolean);
                       const isPlayingInSurah = playingSurahAyah === ayah.numberInSurah && currentSurah.id === block.surahNumber;
-                      const isSelected = (selectedAyah?.surahNumber === block.surahNumber && selectedAyah?.ayahNumber === ayah.numberInSurah) || isPlayingInSurah;
+                      const isAyahSelected = (selectedAyah?.surahNumber === block.surahNumber && selectedAyah?.ayahNumber === ayah.numberInSurah) || isPlayingInSurah;
+
                       return (
-                        <span 
-                          key={`ayah_${block.surahNumber}_${ayah.numberInSurah}_${aIdx}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (selectedAyah?.surahNumber === block.surahNumber && selectedAyah?.ayahNumber === ayah.numberInSurah) {
-                              setSelectedAyah(null);
-                            } else {
-                              setSelectedAyah({
-                                surahNumber: block.surahNumber,
-                                surahName: block.surahName,
-                                ayahNumber: ayah.numberInSurah,
-                                text: displayText,
-                              });
-                            }
-                          }}
-                          className={`inline cursor-pointer transition-colors duration-150 select-text ${
-                            isSelected
-                              ? 'text-[#0284C7] dark:text-[#38BDF8] font-medium'
-                              : 'text-[#14120E] dark:text-[#F5F2EA] hover:text-[#0284C7]/80'
-                          }`}
-                          title="اضغط للاستماع للآية أو معرفة معناها وتفسيرها"
-                        >
-                          {displayText}
-                          <span 
-                            className={`inline-flex items-center justify-center mx-1 font-sans font-bold text-xs select-none align-middle transition-colors ${
-                              isSelected
-                                ? 'text-[#0284C7] dark:text-[#38BDF8]'
-                                : 'text-accent'
+                        <span key={`ayah_${block.surahNumber}_${ayah.numberInSurah}_${aIdx}`} className="inline">
+                          {words.map((word, wIdx) => {
+                            const wordKey = `${block.surahNumber}_${ayah.numberInSurah}_${wIdx}`;
+                            const isWordPlaying = playingWordKey === wordKey;
+                            const isWordSelected = selectedWord?.surahNumber === block.surahNumber &&
+                                                   selectedWord?.ayahNumber === ayah.numberInSurah &&
+                                                   selectedWord?.wordIndex === wIdx;
+
+                            return (
+                              <span
+                                key={`w_${wordKey}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleWordClick(block.surahNumber, block.surahName, ayah.numberInSurah, wIdx, word, displayText);
+                                }}
+                                className={`inline cursor-pointer transition-colors duration-150 select-text ${
+                                  isWordSelected || isWordPlaying
+                                    ? 'text-[#237A6B] dark:text-[#4FD1C5] font-bold underline decoration-2 decoration-[#237A6B]/50'
+                                    : isAyahSelected
+                                    ? 'text-[#237A6B] dark:text-[#4FD1C5] font-semibold'
+                                    : 'text-[#14120E] dark:text-[#F5F2EA] hover:text-[#237A6B]'
+                                }`}
+                                title={`اضغط لسماع كلمة «${word}» أو معرفة معناها`}
+                              >
+                                {word}{' '}
+                              </span>
+                            );
+                          })}
+
+                          {/* Ayah End Bracket: Clicking it selects whole Ayah */}
+                          <span
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAyahClick(block.surahNumber, block.surahName, ayah.numberInSurah, displayText);
+                            }}
+                            className={`inline-flex items-center justify-center mx-1 font-sans font-bold text-xs select-none align-middle cursor-pointer transition-colors ${
+                              isAyahSelected
+                                ? 'text-[#237A6B] dark:text-[#4FD1C5] scale-110'
+                                : 'text-accent hover:text-[#237A6B]'
                             }`}
+                            title="اضغط لتحديد الآية كاملة واستماعها"
                           >
                             ﴿{toArabicNumber(ayah.numberInSurah)}﴾
                           </span>{' '}
@@ -692,41 +773,60 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
       />
 
       
-      {/* Mini Floating Action Pill Menu (matching user image 2) */}
+      {/* Mini Floating Action Pill Menu (Supporting Word-by-Word & Ayah-by-Ayah with التفسير الميسر) */}
       {selectedAyah && !showTafseerModal && (
         <div 
-          className="fixed bottom-24 sm:bottom-28 left-1/2 -translate-x-1/2 z-40 bg-[#181D24]/95 dark:bg-[#10141A]/95 backdrop-blur-md text-white rounded-full px-4 py-2 shadow-2xl flex items-center gap-3.5 border border-white/10 animate-slide-up"
+          className="fixed bottom-24 sm:bottom-28 left-1/2 -translate-x-1/2 z-40 bg-[#151D24]/95 dark:bg-[#0D141C]/95 backdrop-blur-md text-white rounded-full px-4 py-2 shadow-2xl flex items-center gap-3 border border-emerald-500/20 animate-slide-up"
           dir="rtl"
         >
+          {/* If a specific word is selected: Word Audio Button */}
+          {selectedWord && (
+            <>
+              <button
+                onClick={() => handlePlaySingleWord(selectedWord.surahNumber, selectedWord.ayahNumber, selectedWord.wordIndex)}
+                className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400 hover:text-emerald-300 cursor-pointer transition-colors"
+                title={`الاستماع لنطق كلمة «${selectedWord.wordText}»`}
+              >
+                <Volume2 className={`w-3.5 h-3.5 ${playingWordKey ? 'animate-bounce' : ''}`} />
+                <span>نطق الكلمة</span>
+              </button>
+              <div className="w-[1px] h-3.5 bg-white/20" />
+            </>
+          )}
+
           {/* Play Ayah Audio */}
           <button
             onClick={() => handlePlaySingleAyah(selectedAyah.surahNumber, selectedAyah.ayahNumber)}
-            className="flex items-center gap-1.5 text-xs font-semibold hover:text-sky-400 cursor-pointer transition-colors"
-            title="الاستماع لتلاوة الآية"
+            className="flex items-center gap-1.5 text-xs font-semibold hover:text-emerald-400 cursor-pointer transition-colors"
+            title="الاستماع لتلاوة الآية كاملة"
           >
-            <Volume2 className={`w-3.5 h-3.5 ${isPlayingSingle ? 'text-sky-400 animate-pulse' : 'text-sky-400'}`} />
-            <span>{isPlayingSingle ? 'جارٍ التشغيل' : 'استماع'}</span>
+            <Volume2 className={`w-3.5 h-3.5 ${isPlayingSingle ? 'text-emerald-400 animate-pulse' : 'text-emerald-400'}`} />
+            <span>{isPlayingSingle ? 'جارٍ التلاوة' : 'استماع الآية'}</span>
           </button>
 
           <div className="w-[1px] h-3.5 bg-white/20" />
 
-          {/* Open Tafseer */}
+          {/* Open التفسير الميسر */}
           <button
             onClick={() => setShowTafseerModal(true)}
             className="flex items-center gap-1.5 text-xs font-semibold hover:text-amber-400 cursor-pointer transition-colors"
-            title="التفسير ومعاني الكلمات"
+            title="التفسير الميسر لمعاني الآية وكلماتها"
           >
             <BookOpen className="w-3.5 h-3.5 text-amber-400" />
-            <span>تفسير</span>
+            <span>التفسير الميسر</span>
           </button>
 
           <div className="w-[1px] h-3.5 bg-white/20" />
 
           {/* Copy */}
           <button
-            onClick={() => handleCopyAyah(selectedAyah.text, selectedAyah.surahName, selectedAyah.ayahNumber)}
+            onClick={() => handleCopyAyah(
+              selectedWord ? selectedWord.wordText : selectedAyah.text, 
+              selectedAyah.surahName, 
+              selectedAyah.ayahNumber
+            )}
             className="flex items-center gap-1 text-xs font-semibold hover:text-emerald-400 cursor-pointer transition-colors"
-            title="نسخ نص الآية"
+            title={selectedWord ? 'نسخ الكلمة' : 'نسخ نص الآية'}
           >
             {copiedAyah ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
             <span>{copiedAyah ? 'تم' : 'نسخ'}</span>
@@ -736,7 +836,10 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
 
           {/* Dismiss */}
           <button
-            onClick={() => setSelectedAyah(null)}
+            onClick={() => {
+              setSelectedAyah(null);
+              setSelectedWord(null);
+            }}
             className="text-white/60 hover:text-white cursor-pointer transition-colors"
             title="إلغاء التحديد"
           >
