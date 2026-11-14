@@ -146,6 +146,12 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
   const [playingSurahAyah, setPlayingSurahAyah] = useState<number | null>(null);
   const [playingAudioSurahId, setPlayingAudioSurahId] = useState<number | null>(null);
   const [showTafseerModal, setShowTafseerModal] = useState<boolean>(false);
+  const [tafseerAyah, setTafseerAyah] = useState<{
+    surahNumber: number;
+    surahName: string;
+    ayahNumber: number;
+    text: string;
+  } | null>(null);
   const [copiedAyah, setCopiedAyah] = useState<boolean>(false);
   const [isPlayingSingle, setIsPlayingSingle] = useState<boolean>(false);
   const singleAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -299,8 +305,10 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
   // Dismiss Floating Action Menu when clicking anywhere outside, scrolling, or pressing Escape
   useEffect(() => {
     if (!selectedWord && !selectedAyah) return;
+    if (showTafseerModal) return;
 
     const handleDismiss = (e?: MouseEvent | TouchEvent) => {
+      if (showTafseerModal) return;
       if (e) {
         const target = e.target as HTMLElement | null;
         if (!target) return;
@@ -556,6 +564,7 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
     <div 
       ref={containerRef} 
       onClick={() => {
+        if (showTafseerModal) return;
         if (selectedWord || selectedAyah) {
           setSelectedAyah(null);
           setSelectedWord(null);
@@ -951,7 +960,7 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
               {/* Open التفسير الميسر */}
               <button
                 onClick={() => {
-                  setSelectedAyah({
+                  setTafseerAyah({
                     surahNumber: selectedWord.surahNumber,
                     surahName: selectedWord.surahName,
                     ayahNumber: selectedWord.ayahNumber,
@@ -1000,7 +1009,15 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
 
               {/* Open التفسير الميسر */}
               <button
-                onClick={() => setShowTafseerModal(true)}
+                onClick={() => {
+                  setTafseerAyah({
+                    surahNumber: selectedAyah.surahNumber,
+                    surahName: selectedAyah.surahName,
+                    ayahNumber: selectedAyah.ayahNumber,
+                    text: selectedAyah.text,
+                  });
+                  setShowTafseerModal(true);
+                }}
                 className="flex items-center gap-1.5 text-xs font-semibold hover:text-amber-400 cursor-pointer transition-colors whitespace-nowrap"
                 title="التفسير الميسر لمعاني الآية وكلماتها"
               >
@@ -1040,14 +1057,17 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
       )}
 
       {/* Full Tafseer & Word Meanings Modal */}
-      {selectedAyah && showTafseerModal && (
+      {showTafseerModal && tafseerAyah && (
         <AyahActionModal
           isOpen={showTafseerModal}
-          onClose={() => setShowTafseerModal(false)}
-          surahNumber={selectedAyah.surahNumber}
-          surahName={selectedAyah.surahName}
-          ayahNumber={selectedAyah.ayahNumber}
-          ayahText={selectedAyah.text}
+          onClose={() => {
+            setShowTafseerModal(false);
+            setTafseerAyah(null);
+          }}
+          surahNumber={tafseerAyah.surahNumber}
+          surahName={tafseerAyah.surahName}
+          ayahNumber={tafseerAyah.ayahNumber}
+          ayahText={tafseerAyah.text}
           onOpenInStudio={onOpenInStudio}
         />
       )}
