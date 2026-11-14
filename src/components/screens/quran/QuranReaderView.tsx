@@ -3,6 +3,7 @@ import { Bookmark, ChevronRight, ChevronLeft, Loader2, RefreshCw, AlertCircle, S
 import { QURAN_SURAHS, type SurahMeta } from '../../../data/quranSurahs';
 import { db } from '../../../db';
 import { AyahPickerModal } from './AyahPickerModal';
+import { AyahActionModal } from './AyahActionModal';
 
 interface ApiAyah {
   number: number;
@@ -123,6 +124,12 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
   const [jumpInput, setJumpInput] = useState<string>('');
   const [showJump, setShowJump] = useState<boolean>(false);
   const [showAyahPicker, setShowAyahPicker] = useState<boolean>(false);
+  const [selectedAyah, setSelectedAyah] = useState<{
+    surahNumber: number;
+    surahName: string;
+    ayahNumber: number;
+    text: string;
+  } | null>(null);
   const [ayahs, setAyahs] = useState<ApiAyah[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -530,8 +537,25 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
                   >
                     {block.ayahs.map((ayah, aIdx) => {
                       const displayText = cleanAyahText(ayah.text, ayah.numberInSurah, ayah.surah.number);
+                      const isSelected = selectedAyah?.surahNumber === block.surahNumber && selectedAyah?.ayahNumber === ayah.numberInSurah;
                       return (
-                        <span key={`ayah_${block.surahNumber}_${ayah.numberInSurah}_${aIdx}`}>
+                        <span 
+                          key={`ayah_${block.surahNumber}_${ayah.numberInSurah}_${aIdx}`}
+                          onClick={() => {
+                            setSelectedAyah({
+                              surahNumber: block.surahNumber,
+                              surahName: block.surahName,
+                              ayahNumber: ayah.numberInSurah,
+                              text: displayText,
+                            });
+                          }}
+                          className={`cursor-pointer transition-all duration-200 rounded-xl px-1 py-0.5 inline-block my-0.5 ${
+                            isSelected
+                              ? 'bg-accent/20 dark:bg-accent/35 text-primary dark:text-accent font-semibold shadow-xs ring-1 ring-accent/50'
+                              : 'hover:bg-accent/10 dark:hover:bg-accent/20'
+                          }`}
+                          title="اضغط للاستماع للآية أو معرفة معناها وتفسيرها"
+                        >
                           {displayText}
                           <span 
                             className="inline-flex items-center justify-center mx-1.5 text-accent font-sans font-bold text-xs select-none align-middle"
@@ -587,6 +611,19 @@ export const QuranReaderView: React.FC<QuranReaderViewProps> = ({
           onOpenInStudio?.(text, source);
         }}
       />
+
+      {/* Ayah Action Modal (Audio Recitation, Tafseer Al-Muyassar, Word-by-Word) */}
+      {selectedAyah && (
+        <AyahActionModal
+          isOpen={!!selectedAyah}
+          onClose={() => setSelectedAyah(null)}
+          surahNumber={selectedAyah.surahNumber}
+          surahName={selectedAyah.surahName}
+          ayahNumber={selectedAyah.ayahNumber}
+          ayahText={selectedAyah.text}
+          onOpenInStudio={onOpenInStudio}
+        />
+      )}
     </div>
   );
 };
