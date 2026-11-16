@@ -100,23 +100,23 @@ export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({
         {/* Case 2: In-App Browser (Facebook, Instagram, WhatsApp, etc.) */}
         {isInAppBrowser ? (
           <div className="space-y-3">
-            <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-2.5 text-xs text-amber-700 dark:text-amber-300">
-              <AlertTriangle className="w-5 h-5 shrink-0 text-amber-500 mt-0.5" />
-              <div className="leading-relaxed">
-                <strong>أنت تتصفح من داخل تطبيق (فيسبوك أو واتساب):</strong>
-                <p className="mt-1">
-                  المتصفح الداخلي يمنع تنزيل التطبيقات على الشاشة الرئيسية.
-                </p>
+            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs space-y-2">
+              <div className="flex items-center gap-2 font-bold text-amber-600 dark:text-amber-400">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>متصفح داخلي (فيسبوك / واتساب)</span>
               </div>
+              <p className="leading-relaxed font-semibold text-text">
+                يرجى الضغط على الثلاث نقاط (⋮) وفتح الموقع في متصفح خارجي (Chrome / Safari) لتتمكن من تثبيته.
+              </p>
             </div>
 
             <div className="space-y-2 text-xs text-text">
-              <strong className="block text-primary font-bold">خطوتان للتثبيت:</strong>
-              <div className="flex items-center gap-2 p-2.5 rounded-xl bg-surface-elevated border border-border">
+              <strong className="block text-primary font-bold">الخطوات:</strong>
+              <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-surface-elevated border border-border">
                 <span className="w-6 h-6 rounded-full bg-primary text-white font-mono text-xs font-bold flex items-center justify-center shrink-0">1</span>
-                <span>اضغط على النقاط الثلاث <strong>(⋮)</strong> في أعلى أو أسفل الشاشة.</span>
+                <span>اضغط على الثلاث نقاط <strong>(⋮)</strong> في أعلى أو أسفل الشاشة.</span>
               </div>
-              <div className="flex items-center gap-2 p-2.5 rounded-xl bg-surface-elevated border border-border">
+              <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-surface-elevated border border-border">
                 <span className="w-6 h-6 rounded-full bg-primary text-white font-mono text-xs font-bold flex items-center justify-center shrink-0">2</span>
                 <span>اختر <strong>«فتح في المتصفح / Open in Chrome / Safari»</strong>.</span>
               </div>
@@ -124,77 +124,79 @@ export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({
 
             <button
               onClick={handleCopyLink}
-              className="w-full py-2.5 rounded-xl bg-surface-elevated border border-border text-xs font-semibold text-text hover:border-primary/50 flex items-center justify-center gap-2 cursor-pointer transition-all"
+              className="w-full py-3 rounded-xl bg-primary/10 border border-primary/30 text-xs font-bold text-primary hover:bg-primary/15 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.99]"
             >
               {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4 text-primary" />}
-              <span>{copied ? 'تم نسخ الرابط! افتحه في المتصفح' : 'نسخ الرابط لفتحه في المتصفح'}</span>
+              <span>{copied ? 'تم نسخ الرابط! افتحه الآن في متصفحك' : 'نسخ رابط الموقع لفتحه في المتصفح'}</span>
             </button>
           </div>
         ) : isIOS ? (
           /* Case 3: iOS (iPhone / iPad) */
-          <div className="space-y-3">
+          <div className="space-y-3.5">
             {!isSafari && (
               <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-700 dark:text-amber-300 leading-relaxed">
-                تشترط شركة Apple فتح الرابط في متصفح <strong>Safari</strong> لتثبيت التطبيق على الآيفون.
+                تشترط Apple فتح الرابط في متصفح <strong>Safari</strong> لتثبيت التطبيق على الآيفون.
               </div>
             )}
 
-            <div className="space-y-2 text-xs text-text">
-              <strong className="block text-primary font-bold">خطوات تثبيت مَلَاذْ على الآيفون:</strong>
+            <div className="space-y-2.5 text-xs text-text">
+              <strong className="block text-primary font-bold text-sm">خطوات التثبيت على الآيفون:</strong>
               
               <div className="flex items-center gap-3 p-3 rounded-2xl bg-surface-elevated border border-border/80">
-                <span className="w-6 h-6 rounded-full bg-primary text-white font-mono text-xs font-bold flex items-center justify-center shrink-0">1</span>
-                <div className="flex-1">
+                <span className="w-7 h-7 rounded-full bg-primary text-white font-mono text-xs font-bold flex items-center justify-center shrink-0">1</span>
+                <div className="flex-1 leading-relaxed">
                   <span>اضغط على زر المشاركة </span>
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-primary/10 border border-primary/20 text-primary font-bold mx-1">
-                    <Share className="w-3.5 h-3.5 inline ml-0.5" /> مشاركة
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-primary/15 border border-primary/25 text-primary font-bold mx-1">
+                    <Share className="w-3.5 h-3.5" /> ⎋
                   </span>
-                  <span>في شريط Safari بالأسفل.</span>
+                  <span>أسفل شاشة Safari.</span>
                 </div>
               </div>
 
               <div className="flex items-center gap-3 p-3 rounded-2xl bg-surface-elevated border border-border/80">
-                <span className="w-6 h-6 rounded-full bg-primary text-white font-mono text-xs font-bold flex items-center justify-center shrink-0">2</span>
-                <div className="flex-1">
-                  <span>مرر القائمة لأسفل واختر:</span>
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-primary/10 border border-primary/20 text-primary font-bold mx-1">
-                    <PlusSquare className="w-3.5 h-3.5 inline ml-0.5" /> إضافة إلى الصفحة الرئيسية
+                <span className="w-7 h-7 rounded-full bg-primary text-white font-mono text-xs font-bold flex items-center justify-center shrink-0">2</span>
+                <div className="flex-1 leading-relaxed">
+                  <span>اختر من القائمة: </span>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-primary/15 border border-primary/25 text-primary font-bold mx-1">
+                    <PlusSquare className="w-3.5 h-3.5" /> إضافة إلى الشاشة الرئيسية ➕
                   </span>
                 </div>
               </div>
 
               <div className="flex items-center gap-3 p-3 rounded-2xl bg-surface-elevated border border-border/80">
-                <span className="w-6 h-6 rounded-full bg-primary text-white font-mono text-xs font-bold flex items-center justify-center shrink-0">3</span>
-                <span>اضغط على <strong>«إضافة (Add)»</strong> في أعلى زاوية الشاشة.</span>
+                <span className="w-7 h-7 rounded-full bg-primary text-white font-mono text-xs font-bold flex items-center justify-center shrink-0">3</span>
+                <div className="flex-1 leading-relaxed">
+                  <span>اضغط على <strong>«إضافة (Add)»</strong> في أعلى زاوية الشاشة.</span>
+                </div>
               </div>
             </div>
 
             <p className="text-[11px] text-text-muted text-center pt-1">
-              ✨ سيظهر تطبيق «مَلَاذْ» فوراً على شاشتك الرئيسية ويعمل أوفلاين كأي تطبيق نظامي.
+              ✨ سيظهر أيقونة «مَلَاذْ» فوراً على شاشتك الرئيسية ويعمل بدون إنترنت كأي تطبيق عادي.
             </p>
           </div>
         ) : isAndroid ? (
           /* Case 4: Android (Chrome / Samsung Internet) */
-          <div className="space-y-3">
-            <div className="space-y-2 text-xs text-text">
-              <strong className="block text-primary font-bold">خطوات التثبيت من متصفحك:</strong>
+          <div className="space-y-3.5">
+            <div className="space-y-2.5 text-xs text-text">
+              <strong className="block text-primary font-bold text-sm">خطوات التثبيت من قائمة المتصفح:</strong>
               
               <div className="flex items-center gap-3 p-3 rounded-2xl bg-surface-elevated border border-border">
-                <span className="w-6 h-6 rounded-full bg-primary text-white font-mono text-xs font-bold flex items-center justify-center shrink-0">1</span>
-                <div className="flex-1">
+                <span className="w-7 h-7 rounded-full bg-primary text-white font-mono text-xs font-bold flex items-center justify-center shrink-0">1</span>
+                <div className="flex-1 leading-relaxed">
                   <span>اضغط على قائمة المتصفح </span>
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-primary/10 border border-primary/20 text-primary font-bold mx-1">
-                    <MoreVertical className="w-3.5 h-3.5 inline" /> الثلاث نقاط
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-primary/15 border border-primary/25 text-primary font-bold mx-1">
+                    <MoreVertical className="w-3.5 h-3.5 inline ml-0.5" /> الثلاث نقاط (⋮)
                   </span>
                   <span>في أعلى أو أسفل الشاشة.</span>
                 </div>
               </div>
 
               <div className="flex items-center gap-3 p-3 rounded-2xl bg-surface-elevated border border-border">
-                <span className="w-6 h-6 rounded-full bg-primary text-white font-mono text-xs font-bold flex items-center justify-center shrink-0">2</span>
-                <div className="flex-1">
+                <span className="w-7 h-7 rounded-full bg-primary text-white font-mono text-xs font-bold flex items-center justify-center shrink-0">2</span>
+                <div className="flex-1 leading-relaxed">
                   <span>اختر </span>
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-primary/10 border border-primary/20 text-primary font-bold mx-1">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-primary/15 border border-primary/25 text-primary font-bold mx-1">
                     <Download className="w-3.5 h-3.5 inline ml-0.5" /> تثبيت التطبيق
                   </span>
                   <span>أو «إضافة إلى الشاشة الرئيسية».</span>
@@ -205,14 +207,14 @@ export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({
         ) : (
           /* Case 5: Desktop (Chrome / Edge / Windows / Mac) */
           <div className="space-y-3 text-xs text-text">
-            <strong className="block text-primary font-bold">خطوات التثبيت على الحاسوب:</strong>
-            <div className="p-3 rounded-2xl bg-surface-elevated border border-border space-y-2">
+            <strong className="block text-primary font-bold text-sm">خطوات التثبيت على الكمبيوتر:</strong>
+            <div className="p-3.5 rounded-2xl bg-surface-elevated border border-border space-y-2.5">
               <div className="flex items-center gap-2">
                 <Laptop className="w-4 h-4 text-primary shrink-0" />
-                <span>ابحث عن أيقونة التثبيت <strong>(🖥️ أو ➕)</strong> في شريط عنوان المتصفح (URL Bar) أعلى الصفحة.</span>
+                <span>ابحث عن أيقونة التثبيت <strong>(🖥️ أو ➕)</strong> في شريط عنوان المتصفح (URL) بأعلى الصفحة.</span>
               </div>
-              <p className="text-[11px] text-text-muted">
-                أو اضغط على قائمة المتصفح (⋮) ➔ ثم اختر «تثبيت مَلَاذْ / Install Maladh».
+              <p className="text-[11px] text-text-muted leading-relaxed">
+                أو اضغط على قائمة المتصفح <strong>(⋮)</strong> ➔ ثم اختر <strong>«تثبيت مَلَاذْ / Install Maladh»</strong>.
               </p>
             </div>
           </div>
