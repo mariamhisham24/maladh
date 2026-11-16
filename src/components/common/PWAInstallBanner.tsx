@@ -1,12 +1,21 @@
 import React, { useState } from 'react';
 import { usePWAInstall } from '../../hooks/usePWAInstall';
+import { PWAInstallModal } from './PWAInstallModal';
 import { Download, X, Sparkles } from 'lucide-react';
 
 const STORAGE_HOME_DISMISSED = 'maladh_home_pwa_dismissed';
 
-// Global banner wrapper (no instructions modal)
+// Global modal wrapper mounted at App level
 export const PWAInstallBanner: React.FC = () => {
-  return null;
+  const { showGuideModal, setShowGuideModal, triggerNativePrompt, hasNativePrompt } = usePWAInstall();
+  return (
+    <PWAInstallModal
+      isOpen={showGuideModal}
+      onClose={() => setShowGuideModal(false)}
+      onTriggerNativePrompt={triggerNativePrompt}
+      hasNativePrompt={hasNativePrompt}
+    />
+  );
 };
 
 export interface InstallAppBannerProps {

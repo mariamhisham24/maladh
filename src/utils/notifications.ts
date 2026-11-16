@@ -62,10 +62,13 @@ export async function showAppNotification(title: string, options?: NotificationO
   // 1. Primary path: Service Worker showNotification (Mandatory for Android & mobile PWAs)
   if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
     try {
-      const registration = await Promise.race([
-        navigator.serviceWorker.ready,
-        new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), 1200))
-      ]);
+      let registration = await navigator.serviceWorker.getRegistration();
+      if (!registration) {
+        registration = await Promise.race([
+          navigator.serviceWorker.ready,
+          new Promise<any>((resolve) => setTimeout(() => resolve(undefined), 3000))
+        ]);
+      }
       if (registration && 'showNotification' in registration) {
         await registration.showNotification(title, defaultOptions);
         return true;

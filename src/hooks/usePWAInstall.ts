@@ -13,7 +13,13 @@ export interface BeforeInstallPromptEvent extends Event {
 // Module-level singleton state so all components stay 100% in sync
 let globalDeferredPrompt: BeforeInstallPromptEvent | null = null;
 let globalIsInstalled = false;
+let globalShowGuideModal = false;
 const subscribers = new Set<() => void>();
+
+export function setGlobalShowGuideModal(show: boolean) {
+  globalShowGuideModal = show;
+  notifyAll();
+}
 
 function notifyAll() {
   subscribers.forEach((fn) => {
@@ -104,32 +110,8 @@ export function usePWAInstall() {
   const isIOS = /iphone|ipad|ipod/.test(userAgent);
   const isAndroid = /android/.test(userAgent);
 
-  const installApp = async () => {
-    // 1. Android & Desktop: Native 1-click install prompt
+  const triggerNativePrompt = async (): Promise<boolean> => {
     let promptEvent = globalDeferredPrompt || (typeof window !== 'undefined' ? (window as any).__pwa_prompt : null);
-
-    if (!promptEvent && typeof window !== 'undefined') {
-      // Check if prompt is firing right now
-      promptEvent = await new Promise<BeforeInstallPromptEvent | null>((resolve) => {
-        let resolved = false;
-        const handler = () => {
-          if (!resolved) {
-            resolved = true;
-            resolve((window as any).__pwa_prompt || globalDeferredPrompt);
-          }
-        };
-        window.addEventListener('pwa-prompt-ready', handler, { once: true });
-        window.addEventListener('beforeinstallprompt', handler, { once: true });
-        setTimeout(() => {
-          if (!resolved) {
-            resolved = true;
-            resolve((window as any).__pwa_prompt || globalDeferredPrompt);
-          }
-        }, 800);
-      });
-    }
-
-    // Trigger native prompt directly with 1 click
     if (promptEvent) {
       try {
         await promptEvent.prompt();
@@ -142,27 +124,26 @@ export function usePWAInstall() {
           (window as any).__pwa_prompt = null;
         }
         notifyAll();
-        return;
+        return true;
       } catch (err) {
-        console.warn('Install prompt error:', err);
+        console.warn('Native prompt error:', err);
       }
+    }
+    return false;
+  };
+
+  const installApp = async () => {
+    // 1. If native 1-click install prompt is ready, trigger it directly
+    let promptEvent = globalDeferredPrompt || (typeof window !== 'undefined' ? (window as any).__pwa_prompt : null);
+
+    if (promptEvent) {
+      const success = await triggerNativePrompt();
+      if (success) return;
     }
 
-    // 2. iOS (iPhone & iPad): Safari strictly does not allow programmatic beforeinstallprompt.
-    // Instead, calling navigator.share() automatically opens Safari's native iOS sheet with 1 click,
-    // where "إضافة إلى الشاشة الرئيسية" (Add to Home Screen) is immediately presented to the user!
-    if (isIOS && typeof navigator !== 'undefined' && navigator.share) {
-      try {
-        await navigator.share({
-          title: 'مَلَاذْ',
-          text: 'تطبيق مَلَاذْ — رفيقك الروحي للأذكار والقرآن',
-          url: window.location.href,
-        });
-        return;
-      } catch (err) {
-        // User closed the share sheet
-      }
-    }
+    // 2. Otherwise (iOS, In-App browser, desktop, or when native prompt not ready):
+    // Open the smart installation assistant with step-by-step guidance!
+    setGlobalShowGuideModal(true);
   };
 
   return {
@@ -171,6 +152,9 @@ export function usePWAInstall() {
     isIOS,
     isAndroid,
     installApp,
+    triggerNativePrompt,
+    showGuideModal: globalShowGuideModal,
+    setShowGuideModal: setGlobalShowGuideModal,
     hasNativePrompt: !!(globalDeferredPrompt || (typeof window !== 'undefined' && (window as any).__pwa_prompt)),
   };
 }

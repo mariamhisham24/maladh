@@ -16,10 +16,9 @@ export default defineConfig({
         'apple-touch-icon.png',
         'favicon.png',
         'favicon-32x32.png',
-        'maladh-logo-icon.png',
-        'maladh-logo-lockup.png',
-        'botanical-ivory.png',
-        'botanical-night.png',
+        'favicon.svg',
+        'badge-monochrome.png',
+        'badge-sprout.png',
         'fonts/UthmanTN1-Ver10.woff2',
         'fonts/UthmanTN1B-Ver10.woff2',
         'fonts/AmiriQuran-Regular.woff2',
@@ -30,7 +29,12 @@ export default defineConfig({
         'sounds/forest.mp3',
         'sounds/wind.mp3',
         'sounds/campfire.mp3',
-        'sounds/night.mp3'
+        'sounds/night.mp3',
+        'sounds/quran/fatiha.mp3',
+        'sounds/quran/mulk.mp3',
+        'sounds/quran/rahman.mp3',
+        'sounds/quran/waqiah.mp3',
+        'sounds/quran/yaseen.mp3'
       ],
       manifest: {
         id: '/',
@@ -95,7 +99,7 @@ export default defineConfig({
             }
           },
           {
-            urlPattern: /^https:\/\/(everyayah\.com|verses\.quran\.com|download\.quranicaudio\.com|audio\.qurancdn\.com|.*\.mp3quran\.net)\/.*/i,
+            urlPattern: /^https:\/\/(everyayah\.com|verses\.quran\.com|download\.quranicaudio\.com|.*\.mp3quran\.net)\/.*/i,
             handler: 'CacheFirst',
             options: {
               cacheName: 'maladh-quran-audio-cache',
