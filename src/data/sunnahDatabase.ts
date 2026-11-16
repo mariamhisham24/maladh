@@ -1528,20 +1528,37 @@ export const COMPREHENSIVE_SUNNAH: SunnahItem[] = [
 
 // Helper function to return a unique Sunnah for each day of the year (365 days coverage)
 export function getDailySunnah(date: Date = new Date()): SunnahItem {
+  const dayOfWeek = date.getDay(); // 0 = Sunday, 1 = Monday, ..., 5 = Friday, 6 = Saturday
   const startOfYear = new Date(date.getFullYear(), 0, 0);
   const diff = date.getTime() - startOfYear.getTime();
   const oneDay = 1000 * 60 * 60 * 24;
   const dayOfYear = Math.floor(diff / oneDay);
   
-  // If Friday (day 5 in JS Date), prioritize Friday Sunan
-  const isFriday = date.getDay() === 5;
-  if (isFriday) {
-    const kahfSunnah = COMPREHENSIVE_SUNNAH.find((s) => s.id === 'sunnah-21');
-    if (kahfSunnah) return kahfSunnah;
+  // Friday-specific Sunan IDs:
+  // sunnah-21: سنة قراءة سورة الكهف يوم الجمعة
+  // sunnah-22: سنة كثرة الصلاة على النبي ﷺ يوم الجمعة
+  // sunnah-23: سنة التبكير إلى صلاة الجمعة والغسل
+  const fridaySunnahIds = ['sunnah-21', 'sunnah-22', 'sunnah-23'];
+
+  // 1. If Friday (day 5 in JS Date), rotate specifically among Friday Sunan
+  if (dayOfWeek === 5) {
+    const weekNumber = Math.floor(dayOfYear / 7);
+    const fridayId = fridaySunnahIds[Math.abs(weekNumber) % fridaySunnahIds.length];
+    const fridaySunnah = COMPREHENSIVE_SUNNAH.find((s) => s.id === fridayId);
+    if (fridaySunnah) return fridaySunnah;
   }
 
-  const index = Math.abs(dayOfYear) % COMPREHENSIVE_SUNNAH.length;
-  return COMPREHENSIVE_SUNNAH[index] || COMPREHENSIVE_SUNNAH[0];
+  // 2. On regular days (non-Fridays):
+  // Filter out Friday-only Sunan so they never appear on other days of the week,
+  // and exclude Monday/Thursday fasting from appearing on non-fasting days.
+  const regularSunan = COMPREHENSIVE_SUNNAH.filter((s) => {
+    if (fridaySunnahIds.includes(s.id)) return false;
+    if (s.id === 'sunnah-43' && dayOfWeek !== 1 && dayOfWeek !== 4) return false;
+    return true;
+  });
+
+  const index = Math.abs(dayOfYear) % regularSunan.length;
+  return regularSunan[index] || regularSunan[0] || COMPREHENSIVE_SUNNAH[0];
 }
 
 export const SUNNAH_CATEGORIES = [
